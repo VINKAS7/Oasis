@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from . import db
 from .checks import worker
 from .config import AUTH_URL, FRONTEND_DIST
-from .gateway import mcp_server
+from .gateway import business_mcp, mcp_server
 from .routers import admin, ai, chat, extension, live, recordings, tools, workspaces
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -21,7 +21,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 async def lifespan(_: FastAPI):
     db.init_db()
     worker.start()  # tool checks: after every change, and daily
-    async with mcp_server.mcp.session_manager.run():  # the MCP gateway at /mcp
+    # The MCP gateway at /mcp, and each business's own MCP server at /mcp/b/{business_id}.
+    async with mcp_server.mcp.session_manager.run(), business_mcp.mcp.session_manager.run():
         yield
 
 
@@ -32,8 +33,8 @@ app.include_router(tools.router)
 app.include_router(extension.router)
 app.include_router(live.router)
 
-# The MCP gateway (Part F): its route goes first, ahead of the UI's catch-all.
-for route in reversed(mcp_server.http_app().routes):
+# The MCP gateway (Part F) and the per-business servers: their routes go first, ahead of the UI's catch-all.
+for route in [*reversed(mcp_server.http_app().routes), *reversed(business_mcp.http_app().routes)]:
     app.router.routes.insert(0, route)
 app.include_router(ai.router)
 app.include_router(chat.router)

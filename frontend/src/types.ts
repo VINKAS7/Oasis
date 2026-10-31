@@ -242,6 +242,21 @@ export interface AdminWorkspace {
   ai_status: AIStatus | null;
 }
 
+export interface AdminMcpServer {
+  id: string;
+  name: string;
+  type: BusinessType;
+  category_label: string;
+  online_only: boolean;
+  status: "draft" | "live";
+  published_at: string | null;
+  created_at: string;
+  owner_email: string | null;
+  calls_7d: number;
+  server_url: string;
+  tools: { id: string; name: string; title: string | null; badge: string | null; sensitivity: string | null; enabled: boolean; published: boolean }[];
+}
+
 // --- recordings (Part C) -----------------------------------------------------------------
 
 export interface RecordingAction {
@@ -488,6 +503,8 @@ export interface LiveInfo {
   status: "draft" | "live";
   published_at: string | null;
   mcp_url: string;
+  /** The business's own MCP server (its tools directly), served while it is live. */
+  server_url: string;
   public_key: string;
   tools: { id: string; name: string; title: string | null; published: boolean; reason: string }[];
   activity: AgentCall[];

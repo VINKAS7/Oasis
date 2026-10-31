@@ -13,6 +13,8 @@ from .. import db, settings, vault
 from ..ai import gateway
 from ..ai.providers import ProviderConfig, ProviderError
 from ..auth import User, require_admin
+from ..config import PUBLIC_API_URL
+from ..gateway import business_mcp, service
 from ..ids import new_id
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -292,6 +294,35 @@ def all_workspaces() -> list[dict[str, Any]]:
             ' FROM businesses b LEFT JOIN "user" u ON u.id = b.owner_id ORDER BY b.created_at DESC'
         ).fetchall()
         return db.rows(rs)
+
+
+@router.get("/mcp-servers")
+def mcp_servers() -> list[dict[str, Any]]:
+    """Every business's own MCP server: who owns it, whether it is published, and the tools it
+    exposes (published ones, plus the ones still waiting for a check)."""
+    with db.session() as conn:
+        businesses = conn.execute(
+            "SELECT b.id, b.name, b.type, b.category_label, b.online_only, b.status, b.published_at, b.created_at, u.email AS owner_email,"
+            " (SELECT COUNT(*) FROM calls_log c WHERE c.business_id = b.id AND c.created_at >= datetime('now', '-7 days')) AS calls_7d"
+            ' FROM businesses b LEFT JOIN "user" u ON u.id = b.owner_id'
+            " ORDER BY b.status = 'live' DESC, COALESCE(b.published_at, b.created_at) DESC"
+        ).fetchall()
+        out = []
+        for b in businesses:
+            published = {t["tool_id"] for t in service.published_tools(conn, b["id"])}
+            tools = conn.execute(
+                "SELECT t.id, t.name, t.enabled, v.title, v.badge, v.sensitivity FROM tools t"
+                " LEFT JOIN tool_versions v ON v.tool_id = t.id AND v.version = t.current_version"
+                " WHERE t.business_id = ? AND t.removed_at IS NULL ORDER BY t.created_at",
+                (b["id"],),
+            ).fetchall()
+            out.append({
+                **dict(b),
+                "online_only": bool(b["online_only"]),
+                "server_url": business_mcp.url_for(PUBLIC_API_URL, b["id"]),
+                "tools": [{**dict(t), "enabled": bool(t["enabled"]), "published": t["id"] in published} for t in tools],
+            })
+        return out
 
 
 @router.get("/alerts")

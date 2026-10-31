@@ -1,4 +1,4 @@
-"""Part F, the owner's side: go live, see what AI assistants did, and set rules for tools."""
+"""Part F, the owner's side: publish the business's MCP server, see what AI assistants did, and set rules for tools."""
 
 import json
 from typing import Literal
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from .. import db
 from ..auth import User, current_user
 from ..config import PUBLIC_API_URL
-from ..gateway import service, signing
+from ..gateway import business_mcp, service, signing
 from ..registry.rules import inputs_from_schema
 from .workspaces import _owned
 
@@ -33,6 +33,8 @@ def publish(business_id: str, body: PublishIn, user: User = Depends(current_user
         b = _owned(conn, business_id, user)
         if body.live and not b["online_only"] and (b["lat"] is None or b["lng"] is None):
             raise HTTPException(400, "Add your map location under Edit details first, so assistants can find you nearby (or mark the business as online only).")
+        if body.live and not service.published_tools(conn, business_id):
+            raise HTTPException(400, "No tool has passed its checks yet. Approve your tools and run their checks first, then publish.")
     if body.live:
         signing.ensure_key(business_id)
     db.update("businesses", business_id, status="live" if body.live else "draft", published_at=db.now() if body.live else None, updated_at=db.now())
@@ -71,6 +73,8 @@ def live(business_id: str, user: User = Depends(current_user)) -> dict:
         "status": b["status"],
         "published_at": b["published_at"],
         "mcp_url": f"{PUBLIC_API_URL}/mcp",
+        # The business's own MCP server: its tools directly, served while the business is live.
+        "server_url": business_mcp.url_for(PUBLIC_API_URL, business_id),
         "public_key": b["public_key"],
         "tools": [{"id": t["id"], "name": t["name"], "title": t["title"], "published": t["id"] in published, "reason": "" if t["id"] in published else why_not(t)} for t in tools],
         "activity": calls,

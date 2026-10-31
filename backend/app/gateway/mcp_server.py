@@ -54,7 +54,7 @@ async def find_nearby(
 def search_businesses(query: str, type: str | None = None) -> dict[str, Any]:
     """Find live businesses, local or online, by what they offer: "handmade leather bags", "tax advice for freelancers", "yoga for beginners".
 
-    query: words that must all appear in what the business offers.
+    query: a few key words (a name, a topic, what they offer). Businesses mentioning all of them come first; if none does, the closest matches, marked partial_match.
     type: a category or plain words for the kind of business (optional), as in find_nearby."""
     found = directory.search(query, type)
     return {"ok": True, "count": len(found), "businesses": found}

@@ -8,7 +8,7 @@ import { kindLabel, typeInfo } from "../components/businessTypes";
 import { CrawlBadge } from "../components/CrawlBadge";
 import { PageTitle } from "../components/Layout";
 import { EMPTY_WORKSPACE, WorkspaceForm } from "../components/WorkspaceForm";
-import { Button, Callout, EmptyState, ErrorNote, PageLoader, SectionTitle } from "../components/ui";
+import { Badge, Button, Callout, EmptyState, ErrorNote, PageLoader, SectionTitle } from "../components/ui";
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -68,7 +68,10 @@ export function WorkspacesPage() {
               <Link key={w.id} to={`/workspaces/${w.id}`} className="group rounded-lg border border-stone-200 p-4 transition-colors hover:bg-stone-50">
                 <div className="flex items-start justify-between gap-3">
                   <Icon className="size-7 text-stone-600" strokeWidth={1.5} />
-                  {w.latest_run && <CrawlBadge run={w.latest_run} />}
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {w.status === "live" && <Badge tone="green">MCP server live</Badge>}
+                    {w.latest_run && <CrawlBadge run={w.latest_run} />}
+                  </div>
                 </div>
                 <h3 className="mt-3 font-semibold text-stone-800">{w.name}</h3>
                 <p className="text-xs text-stone-500">

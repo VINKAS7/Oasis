@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Check, CircleDot, Copy, Radio, TrendingUp } from "lucide-react";
+import { Bot, Check, CircleDot, Copy, Radio, Server, TrendingUp } from "lucide-react";
 import { api, timeAgo } from "../lib/api";
 import type { LiveInfo } from "../types";
 import { Badge, Button, Callout, ErrorNote, SectionTitle } from "./ui";
@@ -35,11 +35,14 @@ export function LivePanel({ businessId, info, onChange }: { businessId: string; 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const live = info.status === "live";
+  // Tools that passed their checks: on the server while it is live, ready for it while it isn't.
   const published = info.tools.filter((t) => t.published);
-  const desktopConfig = JSON.stringify({ mcpServers: { agentready: { command: "npx", args: ["-y", "mcp-remote", info.mcp_url] } } }, null, 2);
+  const readyCount = published.length;
+  const serverName = businessId.replace(/^biz_/, "").replace(/_/g, "-");
+  const desktopConfig = JSON.stringify({ mcpServers: { [serverName]: { command: "npx", args: ["-y", "mcp-remote", info.server_url] } } }, null, 2);
 
   const toggle = async () => {
-    if (live && !confirm("Unpublish? AI assistants will no longer find or use this business.")) return;
+    if (live && !confirm("Unpublish your MCP server? AI assistants and the customer chat will no longer find or use this business.")) return;
     setBusy(true);
     setError("");
     try {
@@ -56,41 +59,49 @@ export function LivePanel({ businessId, info, onChange }: { businessId: string; 
       <SectionTitle
         action={
           <Button variant={live ? "secondary" : "primary"} onClick={toggle} loading={busy}>
-            {live ? "Unpublish" : <><Radio className="size-4" /> Go live</>}
+            {live ? "Unpublish" : <><Radio className="size-4" /> Publish MCP server</>}
           </Button>
         }
       >
-        AI assistants
+        <span className="flex items-center gap-2">
+          MCP server {live ? <Badge tone="green">live</Badge> : <Badge>not published</Badge>}
+        </span>
       </SectionTitle>
       <ErrorNote>{error}</ErrorNote>
 
       {live ? (
         <Callout tone="green" icon={<CircleDot className="size-4" />} className="mb-4">
-          Live since {timeAgo(info.published_at)}. AI assistants that use AgentReady can find you and use {published.length} tool{published.length === 1 ? "" : "s"}.
+          Published {timeAgo(info.published_at)}. Your MCP server offers {published.length} tool{published.length === 1 ? "" : "s"}, and customers can find you in the AgentReady chat and directory.
         </Callout>
       ) : (
         <Callout icon={<Bot className="size-4" />} className="mb-4">
-          Not live yet. When you go live, your business is listed in the AgentReady directory and AI assistants can use the tools below that passed their checks.
+          {readyCount > 0
+            ? `Not published yet. Publishing gives your business its own MCP server with the ${readyCount} tool${readyCount === 1 ? "" : "s"} that passed their checks, and lists it in the AgentReady chat and directory, so AI assistants can answer about you.`
+            : "Not published yet. Approve your tools and run their checks first: only checked tools go on your MCP server."}
         </Callout>
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2 text-sm">
-          <h3 className="font-medium text-stone-800">Tools assistants can use</h3>
+          <h3 className="font-medium text-stone-800">Tools on your MCP server</h3>
           <ul className="space-y-1">
             {info.tools.map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-2">
                 <span className="truncate">{t.title ?? t.name}</span>
-                {t.published ? <Badge tone="green">published</Badge> : <Badge>{t.reason}</Badge>}
+                {t.published ? <Badge tone="green">{live ? "published" : "ready"}</Badge> : <Badge>{t.reason}</Badge>}
               </li>
             ))}
             {info.tools.length === 0 && <li className="text-stone-500">No tools yet.</li>}
           </ul>
         </div>
         <div className="space-y-2 text-sm">
-          <h3 className="font-medium text-stone-800">Connect an assistant</h3>
-          <p className="text-stone-500">One gateway for every business on AgentReady (MCP, streamable HTTP):</p>
-          <CopyText text={info.mcp_url} />
+          <h3 className="flex items-center gap-1.5 font-medium text-stone-800">
+            <Server className="size-4" /> Your MCP server
+          </h3>
+          <p className="text-stone-500">
+            {live ? "Give this address to any AI assistant (MCP, streamable HTTP). It has your tools only:" : "Your address, once published (MCP, streamable HTTP):"}
+          </p>
+          <CopyText text={info.server_url} />
           <details className="text-stone-500">
             <summary className="cursor-pointer">Claude Desktop on this computer</summary>
             <p className="mt-1">
@@ -99,6 +110,9 @@ export function LivePanel({ businessId, info, onChange }: { businessId: string; 
             <pre className="mt-1 overflow-x-auto rounded bg-stone-100 p-2 text-xs text-stone-700">{desktopConfig}</pre>
             <p className="mt-1">On a public server, add the address as a custom connector instead.</p>
           </details>
+          <p className="pt-1 text-xs text-stone-500">
+            Assistants connected to the shared AgentReady directory find you too: <code>{info.mcp_url}</code>
+          </p>
         </div>
       </div>
 

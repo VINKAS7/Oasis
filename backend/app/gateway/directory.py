@@ -102,10 +102,35 @@ def _card(b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_STOPWORDS = {
+    "a", "an", "the", "and", "or", "of", "for", "to", "in", "on", "at", "by", "with", "about", "is", "are", "what", "whats",
+    "which", "who", "where", "how", "me", "my", "i", "you", "your", "it", "its", "this", "that", "any", "some", "find", "show", "tell",
+}
+
+
+def _query_words(query: str) -> list[str]:
+    """Words worth matching: no punctuation or possessives ("Vinayak's" → "vinayak"), no filler words."""
+    words = []
+    for raw in (query or "").lower().split():
+        w = re.sub(r"[^\w-]", "", raw.replace("’", "'").removesuffix("'s"))
+        if len(w) > 1 and w not in _STOPWORDS:
+            words.append(w)
+    return words
+
+
 def search(query: str, type_: str | None, limit: int = 20) -> list[dict[str, Any]]:
-    """Any live business, online or local, whose description and offer mention every word."""
-    words = [w for w in (query or "").lower().split() if len(w) > 1]
-    results = []
+    """Any live business, online or local, whose description and offer mention every word.
+    When none mentions them all, the businesses that mention the most of them, best first."""
+    found = _search(query, type_, limit)
+    if not found and type_:
+        # A kind no business is filed under ("projects", "portfolio"): use it as search words instead.
+        found = _search(f"{query} {type_}", None, limit)
+    return found
+
+
+def _search(query: str, type_: str | None, limit: int) -> list[dict[str, Any]]:
+    words = _query_words(query)
+    results, partial = [], []
     with db.session() as conn:
         for b in map(dict, conn.execute("SELECT * FROM businesses WHERE status = 'live'").fetchall()):
             if not matches_type(b, type_):
@@ -115,10 +140,15 @@ def search(query: str, type_: str | None, limit: int = 20) -> list[dict[str, Any
             if type_ and missing:  # the right kind of business without what was asked for
                 for w in missing:
                     conn.execute("INSERT INTO demand_log (business_id, keyword, created_at) VALUES (?, ?, ?)", (b["id"], w, db.now()))
-            if missing:
-                continue
-            results.append({**_card(b), "score": sum(text.count(w) for w in words)})
-    return sorted(results, key=lambda r: -r["score"])[:limit]
+            score = sum(text.count(w) for w in words)
+            if not missing:
+                results.append({**_card(b), "score": score})
+            elif len(words) - len(missing) >= max(1, len(words) // 2):
+                partial.append({**_card(b), "score": score, "matched": len(words) - len(missing)})
+    if results:
+        return sorted(results, key=lambda r: -r["score"])[:limit]
+    partial.sort(key=lambda r: (-r["matched"], -r["score"]))
+    return [{**{k: v for k, v in r.items() if k != "matched"}, "partial_match": True} for r in partial[:limit]]
 
 
 async def find(type_: str | None, location: str, radius_km: float, keywords: list[str], open_at: str | None, day: str | None) -> list[dict[str, Any]]:

@@ -19,6 +19,7 @@ import { AdminRouting } from "./pages/admin/Routing";
 import { AdminCrawlerSettings } from "./pages/admin/CrawlerSettings";
 import { AdminUsers } from "./pages/admin/Users";
 import { AdminUsage, AdminWorkspaces } from "./pages/admin/Lists";
+import { AdminMcpServers } from "./pages/admin/McpServers";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -45,6 +46,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="crawler" element={<AdminCrawlerSettings />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="workspaces" element={<AdminWorkspaces />} />
+            <Route path="mcp-servers" element={<AdminMcpServers />} />
             <Route path="usage" element={<AdminUsage />} />
           </Route>
         </Route>

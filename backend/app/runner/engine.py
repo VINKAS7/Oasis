@@ -25,6 +25,9 @@ _PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 _WHOLE = re.compile(r"^\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}$")
 TEXT_LIMIT = 20_000
 TIMEOUT_S = 20
+# Less text than this in the raw HTML: probably a JavaScript app (React, Vue...) showing a
+# loading screen until its scripts run, so the page is rendered in a browser instead.
+THIN_TEXT = 300
 
 
 class InputError(ValueError):
@@ -265,12 +268,55 @@ async def _page(tool: Tool, ctx: Context) -> RunResult:
                 break
             if resp.status_code != 200:
                 return RunResult(False, f"{urlsplit(url).path or '/'} answered HTTP {resp.status_code}.", status=resp.status_code)
-            text = html_text(resp.text) if "html" in resp.headers.get("content-type", "") else resp.text[:TEXT_LIMIT]
+            is_html = "html" in resp.headers.get("content-type", "")
+            text = html_text(resp.text) if is_html else resp.text[:TEXT_LIMIT]
+            if is_html and len(text) < THIN_TEXT:
+                try:
+                    rendered = await _rendered_text(ctx, url)
+                except PlaywrightError:
+                    rendered = ""
+                if len(rendered) > len(text):
+                    text = rendered
             if len(text) < 30:
                 return RunResult(False, f"{urlsplit(url).path or '/'} has almost no text (it may need JavaScript).", status=200)
             pages.append({"url": url, "text": text})
     joined = "\n\n".join(p["text"] for p in pages)
     return RunResult(True, f"Read {len(pages)} page{'s' if len(pages) != 1 else ''}.", output={"pages": pages}, text=joined, status=200)
+
+
+async def _rendered_text(ctx: Context, url: str) -> str:
+    """The page's text after its scripts ran, as a visitor's browser shows it. Same rules as a
+    replay: navigation only to the tool's own site, nothing on private addresses."""
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        try:
+            context = await browser.new_context(user_agent=USER_AGENT)
+
+            async def guard(route: Route) -> None:
+                req = route.request
+                if req.resource_type in ("image", "media", "font"):
+                    return await route.abort()
+                try:
+                    if req.is_navigation_request() or req.method != "GET":
+                        ensure_allowed(ctx, req.url)
+                    else:
+                        safety.check(req.url, ctx.allow_private)  # scripts and data the app loads
+                except (NotAllowed, safety.UnsafeURL):
+                    return await route.abort("blockedbyclient")
+                await route.continue_()
+
+            await context.route("**/*", guard)
+            page = await context.new_page()
+            await page.goto(url, wait_until="load", timeout=TIMEOUT_S * 1000)
+            try:  # apps fetch their content after load; don't wait forever on ones that keep polling
+                await page.wait_for_load_state("networkidle", timeout=8000)
+            except PlaywrightError:
+                pass
+            text = await page.evaluate("document.body ? document.body.innerText : ''")
+        finally:
+            await browser.close()
+    text = re.sub(r"[ \t]+", " ", text or "")
+    return re.sub(r"\n\s*\n+", "\n", text).strip()[:TEXT_LIMIT]
 
 
 def _owner(tool: Tool, ctx: Context) -> RunResult:

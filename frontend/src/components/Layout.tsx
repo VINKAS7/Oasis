@@ -17,6 +17,7 @@ import {
   PlugZap,
   Plus,
   Route,
+  Server,
   Users,
   X,
 } from "lucide-react";
@@ -57,6 +58,7 @@ const ADMIN_NAV = [
   { to: "/admin/crawler", label: "Platform settings", icon: Globe },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/workspaces", label: "All workspaces", icon: Building2 },
+  { to: "/admin/mcp-servers", label: "MCP servers", icon: Server },
   { to: "/admin/usage", label: "AI usage", icon: Activity },
 ];
 
@@ -178,7 +180,7 @@ function Sidebar({ workspaces, admin, onNavigate }: { workspaces: Workspace[]; a
 }
 
 const SECTION_NAMES: Record<string, string> = { tools: "Tools", recordings: "Recordings", proposals: "Suggested changes" };
-const ADMIN_NAMES: Record<string, string> = { providers: "AI providers", routing: "Task routing", crawler: "Platform settings", users: "Users", workspaces: "All workspaces", usage: "AI usage" };
+const ADMIN_NAMES: Record<string, string> = { providers: "AI providers", routing: "Task routing", crawler: "Platform settings", users: "Users", workspaces: "All workspaces", "mcp-servers": "MCP servers", usage: "AI usage" };
 
 function Breadcrumbs({ workspaces }: { workspaces: Workspace[] }) {
   const parts = useLocation().pathname.split("/").filter(Boolean);
