@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/* A Notion-like look: warm greys, one blue accent, quiet borders, generous whitespace.
+   The stone palette is remapped to Notion's greys, and "brand" is Notion's blue, so every
+   page picks the look up from these tokens. */
+@theme {
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Helvetica, "Apple Color Emoji", Arial, sans-serif;
+
+  --color-stone-50: #fbfbfa;
+  --color-stone-100: #f1f1ef;
+  --color-stone-200: #e9e9e7;
+  --color-stone-300: #dfdfdd;
+  --color-stone-400: #a5a49f;
+  --color-stone-500: #787774;
+  --color-stone-600: #6b6a66;
+  --color-stone-700: #4c4b47;
+  --color-stone-800: #37352f;
+  --color-stone-900: #2f2e2b;
+
+  --color-brand-50: #e7f3f8;
+  --color-brand-100: #d3e5ef;
+  --color-brand-500: #529cca;
+  --color-brand-600: #2383e2;
+  --color-brand-700: #2383e2;
+  --color-brand-800: #0b6bcb;
+
+  --color-sidebar: #f7f7f5;
+  --color-hover: rgba(55, 53, 47, 0.08);
+  --color-line: rgba(55, 53, 47, 0.09);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-white text-stone-800 antialiased;
+  font-size: 15px;
+}
+
+::selection {
+  background: rgba(35, 131, 226, 0.28);
+}
