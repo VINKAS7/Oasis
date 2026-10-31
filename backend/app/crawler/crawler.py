@@ -19,7 +19,7 @@ import httpx
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route, async_playwright
 
-from .. import db, settings
+from .. import catalog, db, settings
 from ..config import FILES_DIR, USER_AGENT
 from . import safety
 from .analyze import analyze_run
@@ -249,6 +249,10 @@ async def _visit(page, url: str, depth: int, timeout_ms: int, shots_dir, n: int)
         record["final_url"] = page.url
         record.update(await page.evaluate(EXTRACT_JS))
         record["text"] = record.get("text", "")[:MAX_TEXT_CHARS]
+        try:  # menus, product grids...: repeated item blocks (see catalog.py)
+            record["catalogs"] = await page.evaluate(catalog.DETECT_JS)
+        except PlaywrightError:
+            record["catalogs"] = []
         shot = shots_dir / f"page_{n:03d}.jpg"
         height = await page.evaluate("() => document.documentElement.scrollHeight")
         await page.screenshot(
@@ -270,8 +274,8 @@ def _save_page(run_id: int, r: dict) -> None:
     with db.session() as conn:
         conn.execute(
             "INSERT INTO crawl_pages (run_id, url, depth, status_code, title, meta_description, lang, text, headings,"
-            " links, forms, buttons, json_ld, screenshot_path, error, fetched_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " links, forms, buttons, json_ld, catalogs, screenshot_path, error, fetched_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 run_id,
                 r.get("final_url") or r["url"],
@@ -286,6 +290,7 @@ def _save_page(run_id: int, r: dict) -> None:
                 json.dumps(r.get("forms", [])),
                 json.dumps(r.get("buttons", [])),
                 json.dumps(r.get("json_ld", [])),
+                json.dumps(r.get("catalogs", [])),
                 r.get("screenshot_path"),
                 r.get("error"),
                 db.now(),

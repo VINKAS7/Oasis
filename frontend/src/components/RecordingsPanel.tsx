@@ -26,7 +26,7 @@ export function LiveRecordingBanner({ rec, onChange }: { rec: Recording; onChang
           <div>
             <div className="font-semibold">Recording “{rec.title}”</div>
             <p className="text-sm text-stone-600">
-              A browser window is open on the computer running AgentReady. Do the task there, then press Finish in its panel or here.
+              A browser window is open on the computer running Oasis. Do the task there, then press Finish in its panel or here.
             </p>
             <p className="mt-1 text-xs text-stone-500">
               {plural(steps.length, "step")} · {plural(rec.actions_count, "action")} · {plural(rec.requests_count, "request")} captured
@@ -64,7 +64,7 @@ export function RecordingsPanel({
     <Card>
       <CardHeader
         title="Recorded flows"
-        description="Bookings, orders, enquiries and other actions you showed AgentReady. Record each one twice with different values."
+        description="Bookings, orders, enquiries and other actions you showed Oasis. Record each one twice with different values."
         action={
           <Button variant="secondary" onClick={onRecord}>
             <Plus className="size-4" /> Record a flow

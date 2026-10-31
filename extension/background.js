@@ -1,10 +1,10 @@
-// AgentReady Recorder: records one flow in the owner's own Chrome tab.
+// Oasis Recorder: records one flow in the owner's own Chrome tab.
 //
 // - content.js reports clicks, typing and submits, and shows the owner's step panel;
 // - chrome.debugger (Network + Fetch domains) captures the messages the site sends its server;
 // - a new step starts whenever the page changes; each step gets a screenshot;
 // - everything is masked (clean.js) as it arrives; on Finish the recording is uploaded to
-//   AgentReady, which cleans it again, and the owner continues there.
+//   Oasis, which cleans it again, and the owner continues there.
 //
 // The service worker can be stopped by Chrome at any time, so the recording lives in
 // chrome.storage.local and is reloaded on wake-up.
@@ -62,13 +62,13 @@ async function api(path, options = {}) {
   const body = await res.json().catch(() => null);
   if (res.status === 401) {
     await chrome.storage.local.remove(["token", "user"]);
-    const err = new Error("Your AgentReady session ended. Log in again.");
+    const err = new Error("Your Oasis session ended. Log in again.");
     err.status = 401;
     throw err;
   }
   if (!res.ok) {
     const d = body?.detail;
-    throw new Error(typeof d === "string" ? d : d ? JSON.stringify(d) : `AgentReady answered ${res.status}`);
+    throw new Error(typeof d === "string" ? d : d ? JSON.stringify(d) : `Oasis answered ${res.status}`);
   }
   return body;
 }
@@ -441,7 +441,7 @@ async function handle(msg, sender) {
       await discard();
       return { ok: true };
     case "token": {
-      // Only the AgentReady address set in the popup may connect the extension.
+      // Only the Oasis address set in the popup may connect the extension.
       const { appUrl } = await settings();
       if (!sender.url || new URL(sender.url).origin !== new URL(appUrl).origin) {
         return { ok: false, error: `This extension is set up for ${appUrl}.` };

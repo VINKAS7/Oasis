@@ -1,4 +1,4 @@
-"""AgentReady platform API."""
+"""Oasis platform API."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -12,7 +12,7 @@ from . import db
 from .checks import worker
 from .config import AUTH_URL, FRONTEND_DIST
 from .gateway import business_mcp, mcp_server
-from .routers import admin, ai, chat, extension, live, recordings, tools, workspaces
+from .routers import admin, ai, chat, extension, live, orders, recordings, tools, workspaces
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -26,12 +26,13 @@ async def lifespan(_: FastAPI):
         yield
 
 
-app = FastAPI(title="AgentReady API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Oasis API", version="0.1.0", lifespan=lifespan)
 app.include_router(workspaces.router)
 app.include_router(recordings.router)
 app.include_router(tools.router)
 app.include_router(extension.router)
 app.include_router(live.router)
+app.include_router(orders.router)
 
 # The MCP gateway (Part F) and the per-business servers: their routes go first, ahead of the UI's catch-all.
 for route in [*reversed(mcp_server.http_app().routes), *reversed(business_mcp.http_app().routes)]:

@@ -25,7 +25,7 @@ export function PageDrawer({ businessId, page, onClose }: { businessId: string; 
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-stone-900/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <aside className="relative flex h-full w-full max-w-2xl flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between gap-3 border-b border-stone-200 px-5 py-4">
           <div className="min-w-0">

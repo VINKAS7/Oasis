@@ -44,7 +44,7 @@ export function ExtensionConnectPage() {
       <Card className="p-6">
         {state === "looking" && (
           <p className="flex items-center gap-2 text-stone-600">
-            <Loader2 className="size-4 animate-spin" /> Looking for the AgentReady Recorder extension…
+            <Loader2 className="size-4 animate-spin" /> Looking for the Oasis Recorder extension…
           </p>
         )}
         {state === "connected" && (
@@ -78,7 +78,7 @@ export function ExtensionConnectPage() {
 export function ExtensionPage() {
   const steps = [
     <>
-      <a href="/api/extension/download" className="font-medium text-[#2383e2] hover:underline">
+      <a href="/api/extension/download" className="font-medium text-brand-700 hover:underline">
         Download the extension
       </a>{" "}
       and unzip it.
@@ -99,7 +99,7 @@ export function ExtensionPage() {
   ];
   return (
     <div className="mx-auto max-w-2xl">
-      <PageTitle icon={<PlugZap className="size-9" />} title="AgentReady Recorder" subtitle="A Chrome extension that records a flow on your own website, in your own browser." />
+      <PageTitle icon={<PlugZap className="size-9" />} title="Oasis Recorder" subtitle="A Chrome extension that records a flow on your own website, in your own browser." />
       <ol className="space-y-3">
         {steps.map((s, i) => (
           <li key={i} className="flex gap-3">
@@ -108,8 +108,8 @@ export function ExtensionPage() {
           </li>
         ))}
       </ol>
-      <div className="mt-8 rounded-md bg-[#f1f1ef] px-4 py-3 text-sm text-stone-700">
-        While recording, Chrome shows “AgentReady Recorder started debugging this browser”: that is how the extension sees the messages your website sends
+      <div className="mt-8 rounded-md bg-soft-gray px-4 py-3 text-sm text-stone-700">
+        While recording, Chrome shows “Oasis Recorder started debugging this browser”: that is how the extension sees the messages your website sends
         to its server. Passwords and personal details are masked before anything leaves your browser, and again on our server. The extension talks to{" "}
         <code className="rounded bg-white px-1">{window.location.origin}</code>; if that's not its default (http://localhost:5173), set it under the extension's
         Settings.

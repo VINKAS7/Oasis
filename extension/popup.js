@@ -1,4 +1,4 @@
-// The extension's popup: log in through AgentReady, choose what to record, start, finish.
+// The extension's popup: log in through Oasis, choose what to record, start, finish.
 
 const view = document.getElementById("view");
 const who = document.getElementById("who");
@@ -24,8 +24,8 @@ function snake(s) {
 
 function loginView(state, error) {
   show(
-    h("h1", {}, "Connect your AgentReady account"),
-    h("p", { class: "muted" }, "Log in on the AgentReady website once. The extension then records flows on your own website and saves them to your workspace."),
+    h("h1", {}, "Connect your Oasis account"),
+    h("p", { class: "muted" }, "Log in on the Oasis website once. The extension then records flows on your own website and saves them to your workspace."),
     errorBox(error),
     h("div", { class: "row" }, h("button", { class: "primary", onclick: () => chrome.tabs.create({ url: `${state.appUrl}/extension/connect` }) }, "Log in")),
   );
@@ -38,8 +38,8 @@ async function idleView(state) {
   if (!ctx.workspaces.length) {
     return show(
       h("h1", {}, "No workspace yet"),
-      h("p", { class: "muted" }, "Create a workspace for your business on the AgentReady website first."),
-      h("div", { class: "row" }, h("button", { class: "primary", onclick: () => chrome.tabs.create({ url: `${state.appUrl}/workspaces/new` }) }, "Open AgentReady")),
+      h("p", { class: "muted" }, "Create a workspace for your business on the Oasis website first."),
+      h("div", { class: "row" }, h("button", { class: "primary", onclick: () => chrome.tabs.create({ url: `${state.appUrl}/workspaces/new` }) }, "Open Oasis")),
     );
   }
 
@@ -119,7 +119,7 @@ function resultView(rec) {
         "div",
         { class: "row" },
         h("button", { class: "secondary", onclick: async () => { await ask("dismiss"); render(); } }, "Record another"),
-        h("button", { class: "primary", onclick: async () => { chrome.tabs.create({ url: rec.result.url }); await ask("dismiss"); } }, "Continue in AgentReady"),
+        h("button", { class: "primary", onclick: async () => { chrome.tabs.create({ url: rec.result.url }); await ask("dismiss"); } }, "Continue in Oasis"),
       ),
     );
   }

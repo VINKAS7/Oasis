@@ -155,6 +155,33 @@ CREATE TABLE IF NOT EXISTS tool_checks (
 );
 CREATE INDEX IF NOT EXISTS tool_checks_tool ON tool_checks(tool_id, created_at);
 
+-- The last items an item_list tool returned: orders are priced from these, never from the assistant.
+CREATE TABLE IF NOT EXISTS item_snapshots (
+    tool_id     TEXT PRIMARY KEY,
+    business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    items       TEXT NOT NULL,                         -- JSON list from catalog.normalize
+    fetched_at  TEXT NOT NULL
+);
+
+-- Orders customers send through Oasis (request_order); the owner accepts or declines them.
+CREATE TABLE IF NOT EXISTS orders (
+    id               TEXT PRIMARY KEY,                 -- ord_...
+    business_id      TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    items            TEXT NOT NULL,                    -- JSON [{id, name, quantity, amount, currency}]
+    total            REAL,                             -- NULL when some price is unknown
+    currency         TEXT NOT NULL DEFAULT '',
+    customer_name    TEXT NOT NULL,
+    customer_contact TEXT NOT NULL,                    -- phone or email
+    pickup_time      TEXT NOT NULL DEFAULT '',
+    note             TEXT NOT NULL DEFAULT '',
+    status           TEXT NOT NULL DEFAULT 'pending',  -- pending | accepted | declined
+    owner_note       TEXT NOT NULL DEFAULT '',
+    status_token     TEXT NOT NULL,                    -- lets the customer (or their assistant) read the status
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS orders_business ON orders(business_id, status, created_at);
+
 CREATE TABLE IF NOT EXISTS alerts (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id  TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
@@ -289,6 +316,8 @@ COLUMNS = [
     ("businesses", "published_at", "TEXT"),
     ("businesses", "category_label", "TEXT NOT NULL DEFAULT ''"),  # the owner's own words, e.g. "bike repair shop"
     ("businesses", "online_only", "INTEGER NOT NULL DEFAULT 0"),   # no physical place: no address, map or hours needed
+    ("crawl_pages", "catalogs", "TEXT NOT NULL DEFAULT '[]'"),     # repeated item blocks: menus, product grids (catalog.py)
+    ("businesses", "accepts_orders", "INTEGER NOT NULL DEFAULT 0"),  # the owner takes orders through Oasis's order inbox
 ]
 
 

@@ -1,4 +1,4 @@
-// AgentReady auth service: better-auth (email + password, admin plugin) on the shared SQLite file.
+// Oasis auth service: better-auth (email + password, admin plugin) on the shared SQLite file.
 // The browser reaches it through the Vite proxy (/api/auth/*); the Python API calls
 // /api/auth/get-session with the user's cookie to learn who is asking.
 import { createServer } from "node:http";
@@ -38,7 +38,7 @@ function randomId(size = 24) {
 }
 
 export const auth = betterAuth({
-  appName: "AgentReady",
+  appName: "Oasis",
   baseURL: PUBLIC_URL,
   basePath: "/api/auth",
   secret: process.env.BETTER_AUTH_SECRET,

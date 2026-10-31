@@ -243,7 +243,7 @@ export function WorkspaceForm({
         {showHours && <HoursEditor hours={hasHours(value.hours) ? value.hours : DEFAULT_HOURS} onChange={(hours) => patch({ hours })} />}
       </Section>
 
-      <Section title="Website" description="After you save, AgentReady reads your website page by page.">
+      <Section title="Website" description="After you save, Oasis reads your website page by page.">
         <Field label="Website address" hint="We visit up to 30 pages on this site. Nothing on your site is changed.">
           <Input value={value.website_url} onChange={(e) => patch({ website_url: e.target.value })} placeholder="https://your-business.ch" inputMode="url" />
         </Field>

@@ -12,7 +12,7 @@ from ..recorder import store as rec_store
 from ..recorder.clean import MASK, key_is_secret
 from ..registry import rules
 
-KINDS = {"http_request", "browser_replay", "page_extract", "owner_data"}
+KINDS = {"http_request", "browser_replay", "page_extract", "item_list", "owner_data"}
 STEP_TYPES = {"goto", "fill", "select", "check", "uncheck", "click", "press", "submit"}
 METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 RATE_LIMITS = {"read_only": 60, "booking": 10, "personal_data": 10, "payment": 3}  # calls per minute
@@ -48,6 +48,7 @@ def _urls(runner: dict[str, Any], site: str) -> list[str]:
         if s.get("type") == "goto":
             urls.append(urljoin(site, s.get("value") or s.get("page") or ""))
     urls += [urljoin(site, u) for u in runner.get("source_urls", [])]
+    urls += [urljoin(site, s.get("url", "")) for s in runner.get("sources", [])]  # item_list
     return urls
 
 

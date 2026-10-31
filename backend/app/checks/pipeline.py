@@ -19,6 +19,7 @@ from typing import Any
 from .. import db, settings
 from ..recorder.clean import MASK
 from ..registry.rules import inputs_from_schema
+from ..gateway import orders
 from ..runner import engine
 from . import injection, security
 
@@ -62,7 +63,7 @@ def sample_inputs(schema: dict[str, Any]) -> dict[str, Any]:
         elif any(k in n for k in ("phone", "tel", "mobile")):
             out[i["name"]] = "+41 00 000 00 00"
         elif "name" in n or i["personal"]:
-            out[i["name"]] = "AgentReady Test"
+            out[i["name"]] = "Oasis Test"
         else:
             out[i["name"]] = "test"
     return out
@@ -195,6 +196,8 @@ async def _run(chk, v: dict[str, Any], tool: dict[str, Any], business: dict[str,
                 result = await engine.run(run_tool, ctx, inputs, dry=mode == "dry")
             except (engine.InputError, engine.NotAllowed) as exc:
                 result = engine.RunResult(False, str(exc))
+            if result.ok and version["runner"].get("kind") == "item_list":
+                orders.save_snapshot(business["id"], tool["id"], result.output)  # what orders are priced from
             if mode == "live_then_cancel" and result.ok and cancel is not None:
                 ct, cv = cancel
                 schema = json.loads(cv["input_schema"])

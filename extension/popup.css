@@ -3,7 +3,7 @@
   --muted: #787774;
   --border: rgba(55, 53, 47, 0.16);
   --hover: rgba(55, 53, 47, 0.06);
-  --blue: #2383e2;
+  --blue: #0d8a78;
   --red: #eb5757;
   --green: #0f7b6c;
   --callout: #f1f1ef;
@@ -31,7 +31,7 @@ select, input[type="text"], input[type="url"] {
   display: block; width: 100%; margin-top: 4px; padding: 6px 8px; font: inherit; color: inherit;
   border: 1px solid var(--border); border-radius: 6px; background: #fbfbfa;
 }
-select:focus, input:focus { outline: 2px solid rgba(35, 131, 226, 0.35); border-color: var(--blue); background: #fff; }
+select:focus, input:focus { outline: 2px solid rgba(13, 138, 120, 0.35); border-color: var(--blue); background: #fff; }
 .check { display: flex; gap: 6px; align-items: center; font-weight: 400; }
 .row { display: flex; gap: 8px; margin-top: 12px; }
 button {

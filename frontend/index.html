@@ -4,7 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>AgentReady</title>
+    <title>Oasis</title>
+    <meta name="theme-color" content="#0b0e13" />
+    <script>
+      // Apply the saved theme before the first paint (see src/lib/theme.ts).
+      (function () {
+        var p = localStorage.getItem("oasis.theme");
+        var dark = p === "dark" || (p !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

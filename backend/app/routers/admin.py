@@ -14,7 +14,7 @@ from ..ai import gateway
 from ..ai.providers import ProviderConfig, ProviderError
 from ..auth import User, require_admin
 from ..config import PUBLIC_API_URL
-from ..gateway import business_mcp, service
+from ..gateway import business_mcp, orders, service
 from ..ids import new_id
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -302,7 +302,7 @@ def mcp_servers() -> list[dict[str, Any]]:
     exposes (published ones, plus the ones still waiting for a check)."""
     with db.session() as conn:
         businesses = conn.execute(
-            "SELECT b.id, b.name, b.type, b.category_label, b.online_only, b.status, b.published_at, b.created_at, u.email AS owner_email,"
+            "SELECT b.id, b.name, b.type, b.category_label, b.online_only, b.status, b.accepts_orders, b.published_at, b.created_at, u.email AS owner_email,"
             " (SELECT COUNT(*) FROM calls_log c WHERE c.business_id = b.id AND c.created_at >= datetime('now', '-7 days')) AS calls_7d"
             ' FROM businesses b LEFT JOIN "user" u ON u.id = b.owner_id'
             " ORDER BY b.status = 'live' DESC, COALESCE(b.published_at, b.created_at) DESC"
@@ -316,11 +316,16 @@ def mcp_servers() -> list[dict[str, Any]]:
                 " WHERE t.business_id = ? AND t.removed_at IS NULL ORDER BY t.created_at",
                 (b["id"],),
             ).fetchall()
+            listed = [{**dict(t), "enabled": bool(t["enabled"]), "published": t["id"] in published} for t in tools]
+            if orders.available(conn, dict(b)):  # the order inbox's tools, on the server like the business's own
+                listed += [{"id": f"{b['id']}:{e['name']}", "name": e["name"], "title": e["title"], "badge": e["badge"], "enabled": True, "published": True,
+                            "sensitivity": "order" if e["requires_user_confirmation"] else "read_only"} for e in orders.tool_entries()]
             out.append({
                 **dict(b),
                 "online_only": bool(b["online_only"]),
+                "accepts_orders": bool(b["accepts_orders"]),
                 "server_url": business_mcp.url_for(PUBLIC_API_URL, b["id"]),
-                "tools": [{**dict(t), "enabled": bool(t["enabled"]), "published": t["id"] in published} for t in tools],
+                "tools": listed,
             })
         return out
 

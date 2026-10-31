@@ -88,3 +88,44 @@ async def confirm(body: ConfirmIn, request: Request) -> StreamingResponse:
     confirmed = {"business_id": body.business_id, "tool": body.tool, "inputs": body.inputs}
     known = [b.model_dump() for b in body.businesses]
     return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), known, confirmed=confirmed))
+
+
+class OrderLine(BaseModel):
+    id: str = Field(min_length=1, max_length=120)
+    quantity: int = Field(ge=1, le=20)
+
+
+class OrderIn(BaseModel):
+    business_id: str = Field(min_length=1, max_length=80)
+    items: list[OrderLine] = Field(min_length=1, max_length=50)
+    customer_name: str = Field(min_length=1, max_length=80)
+    customer_contact: str = Field(min_length=3, max_length=120)
+    pickup_time: str = Field(default="", max_length=40)
+    note: str = Field(default="", max_length=300)
+
+
+async def _gateway(tool: str, args: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return await agent.call(tool, args)
+    except Exception as exc:  # noqa: BLE001 - MCP errors arrive as exception groups
+        raise HTTPException(502, "Can't reach the Oasis directory right now. Please try again.") from exc
+
+
+@router.post("/order")
+async def order(body: OrderIn, request: Request) -> dict[str, Any]:
+    """The visitor pressed Send order on the order they reviewed: that click is their confirmation,
+    so this exact order goes through the gateway with user_confirmed=true."""
+    _rate_limit(_visitor(request))
+    inputs = body.model_dump(exclude={"business_id"})
+    data = await _gateway("call_business_tool", {"business_id": body.business_id, "tool": "request_order", "inputs": inputs, "user_confirmed": True})
+    if not data.get("ok"):
+        raise HTTPException(400, data.get("message") or "The order could not be sent.")
+    return {k: data.get(k) for k in ("order_id", "status", "status_token", "lines", "total", "currency", "business", "message")}
+
+
+@router.get("/orders/{order_id}")
+async def order_status(order_id: str, business_id: str, token: str) -> dict[str, Any]:
+    data = await _gateway("call_business_tool", {"business_id": business_id, "tool": "get_order_status", "inputs": {"order_id": order_id, "status_token": token}})
+    if not data.get("ok"):
+        raise HTTPException(404, data.get("message") or "Order not found")
+    return {k: data.get(k) for k in ("order_id", "status", "owner_note", "updated_at")}

@@ -1,7 +1,7 @@
 {
   "name": "agentready",
   "private": true,
-  "description": "AgentReady: turn a local business website into tools AI assistants can use.",
+  "description": "Oasis: turn a local business website into tools AI assistants can use.",
   "scripts": {
     "init-env": "node scripts/init-env.mjs",
     "setup": "node scripts/init-env.mjs && npm --prefix auth install && npm --prefix frontend install && uv --directory backend sync && uv --directory backend run playwright install chromium",

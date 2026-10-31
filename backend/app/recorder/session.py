@@ -350,7 +350,7 @@ def _thread_main(rec: Recorder) -> None:
         log.exception("recording %s failed", rec.id)
         msg = str(exc).splitlines()[0][:400] if str(exc) else exc.__class__.__name__
         if "Missing X server" in msg or "DISPLAY" in msg:
-            msg = "The recorder needs a screen: it opens a browser window on the computer running AgentReady. Upload a recording instead."
+            msg = "The recorder needs a screen: it opens a browser window on the computer running Oasis. Upload a recording instead."
         db.update("recordings", rec.id, status="failed", error=msg, finished_at=db.now())
     finally:
         ACTIVE.pop(rec.id, None)

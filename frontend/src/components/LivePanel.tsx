@@ -71,12 +71,12 @@ export function LivePanel({ businessId, info, onChange }: { businessId: string; 
 
       {live ? (
         <Callout tone="green" icon={<CircleDot className="size-4" />} className="mb-4">
-          Published {timeAgo(info.published_at)}. Your MCP server offers {published.length} tool{published.length === 1 ? "" : "s"}, and customers can find you in the AgentReady chat and directory.
+          Published {timeAgo(info.published_at)}. Your MCP server offers {published.length} tool{published.length === 1 ? "" : "s"}, and customers can find you in the Oasis chat and directory.
         </Callout>
       ) : (
         <Callout icon={<Bot className="size-4" />} className="mb-4">
           {readyCount > 0
-            ? `Not published yet. Publishing gives your business its own MCP server with the ${readyCount} tool${readyCount === 1 ? "" : "s"} that passed their checks, and lists it in the AgentReady chat and directory, so AI assistants can answer about you.`
+            ? `Not published yet. Publishing gives your business its own MCP server with the ${readyCount} tool${readyCount === 1 ? "" : "s"} that passed their checks, and lists it in the Oasis chat and directory, so AI assistants can answer about you.`
             : "Not published yet. Approve your tools and run their checks first: only checked tools go on your MCP server."}
         </Callout>
       )}
@@ -111,7 +111,7 @@ export function LivePanel({ businessId, info, onChange }: { businessId: string; 
             <p className="mt-1">On a public server, add the address as a custom connector instead.</p>
           </details>
           <p className="pt-1 text-xs text-stone-500">
-            Assistants connected to the shared AgentReady directory find you too: <code>{info.mcp_url}</code>
+            Assistants connected to the shared Oasis directory find you too: <code>{info.mcp_url}</code>
           </p>
         </div>
       </div>

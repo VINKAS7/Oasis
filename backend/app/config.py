@@ -27,4 +27,4 @@ PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", "http://localhost:8000").rstrip("/"
 # The MCP gateway the customer chat (/chat) uses, like any outside assistant would. Default: this server's own.
 CLIENT_MCP_URL = os.getenv("CLIENT_MCP_URL", "").strip().rstrip("/") or f"{PUBLIC_API_URL}/mcp"
 
-USER_AGENT = "AgentReadyBot/0.1 (+https://github.com/agentready)"
+USER_AGENT = "OasisBot/0.1 (+https://github.com/agentready)"

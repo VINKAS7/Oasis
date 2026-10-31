@@ -87,6 +87,7 @@ class WorkspacePatch(BaseModel):
     website_url: str | None = Field(default=None, max_length=500)
     test_url: str | None = Field(default=None, max_length=500)
     description: str | None = Field(default=None, max_length=2000)
+    accepts_orders: bool | None = None  # take orders through Oasis's order inbox
 
     @field_validator("website_url", "test_url")
     @classmethod
@@ -100,6 +101,8 @@ RUN_FIELDS = ("summary", "documents")
 def _business_out(conn, b) -> dict:
     out = db.row(b, ("hours",))
     out["online_only"] = bool(out.get("online_only"))
+    out["accepts_orders"] = bool(out.get("accepts_orders"))
+    out["pending_orders"] = conn.execute("SELECT COUNT(*) FROM orders WHERE business_id = ? AND status = 'pending'", (b["id"],)).fetchone()[0]
     out.pop("signing_key_enc", None)
     run = conn.execute("SELECT * FROM crawl_runs WHERE business_id = ? ORDER BY id DESC LIMIT 1", (b["id"],)).fetchone()
     out["latest_run"] = db.row(run, RUN_FIELDS)
@@ -167,8 +170,9 @@ def update_workspace(business_id: str, body: WorkspacePatch, user: User = Depend
     fields = body.model_dump(exclude_unset=True)
     if "hours" in fields:
         fields["hours"] = json.dumps(fields["hours"] or {})
-    if "online_only" in fields:
-        fields["online_only"] = int(bool(fields["online_only"]))
+    for key in ("online_only", "accepts_orders"):
+        if key in fields:
+            fields[key] = int(bool(fields[key]))
     for key in ("website_url", "test_url"):
         if fields.get(key):
             fields[key] = _check_url(fields[key])

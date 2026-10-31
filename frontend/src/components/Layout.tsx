@@ -25,13 +25,14 @@ import { isAdmin, signOut, useSession } from "../lib/auth-client";
 import { api } from "../lib/api";
 import type { Workspace } from "../types";
 import { typeInfo } from "./businessTypes";
+import { OasisLogo, OasisMark } from "./Brand";
+import { ThemeToggle } from "./ThemeToggle";
 import { cx } from "./ui";
 
 export function Logo({ className }: { className?: string }) {
   return (
-    <Link to="/" className={cx("flex items-center gap-2 font-semibold text-stone-800", className)}>
-      <img src="/favicon.svg" alt="" className="size-6" />
-      AgentReady
+    <Link to="/" className={cx("flex items-center", className)} aria-label="Oasis home">
+      <OasisLogo />
     </Link>
   );
 }
@@ -77,10 +78,8 @@ function AccountMenu() {
   return (
     <div className="relative">
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-hover">
-        <span className="flex size-5 items-center justify-center rounded bg-stone-800 text-[11px] font-semibold text-white">
-          {(user.name || user.email).slice(0, 1).toUpperCase()}
-        </span>
-        <span className="min-w-0 flex-1 truncate font-medium">{first}'s AgentReady</span>
+        <OasisMark className="size-5 text-stone-900" />
+        <span className="min-w-0 flex-1 truncate font-medium">{first}'s Oasis</span>
         <ChevronsUpDown className="size-3.5 text-stone-400" />
       </button>
       {open && (
@@ -153,6 +152,11 @@ function Sidebar({ workspaces, admin, onNavigate }: { workspaces: Workspace[]; a
               <NavLink key={w.id} to={`/workspaces/${w.id}`} className={item}>
                 <Icon className="size-4 shrink-0" />
                 <span className="truncate">{w.name}</span>
+                {w.pending_orders > 0 && (
+                  <span className="ml-auto rounded-full bg-danger-dot px-1.5 text-[11px] leading-4 font-semibold text-white" title={`${w.pending_orders} new order(s)`}>
+                    {w.pending_orders}
+                  </span>
+                )}
               </NavLink>
             );
           })}
@@ -231,7 +235,7 @@ export function AppLayout() {
       </aside>
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-stone-900/30" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
           <aside className="relative h-full w-64 bg-sidebar shadow-xl">
             <button onClick={() => setMobileOpen(false)} className="absolute top-3 right-2 rounded p-1 text-stone-500 hover:bg-hover" aria-label="Close menu">
               <X className="size-4" />
@@ -246,6 +250,7 @@ export function AppLayout() {
             <Menu className="size-4" />
           </button>
           <Breadcrumbs workspaces={workspaces} />
+          <ThemeToggle className="ml-auto" />
         </header>
         <main className="mx-auto max-w-[960px] px-6 pt-10 pb-24 sm:px-12">
           <Outlet />

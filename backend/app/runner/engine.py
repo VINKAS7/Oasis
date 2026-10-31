@@ -6,6 +6,8 @@ Used by the checks (Part E) and, later, by the MCP gateway (Part F).
 
 import json
 import re
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import date
 from html.parser import HTMLParser
@@ -16,6 +18,7 @@ import httpx
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route, async_playwright
 
+from .. import catalog
 from ..config import USER_AGENT
 from ..crawler import safety
 from ..recorder.clean import MASK
@@ -284,9 +287,11 @@ async def _page(tool: Tool, ctx: Context) -> RunResult:
     return RunResult(True, f"Read {len(pages)} page{'s' if len(pages) != 1 else ''}.", output={"pages": pages}, text=joined, status=200)
 
 
-async def _rendered_text(ctx: Context, url: str) -> str:
-    """The page's text after its scripts ran, as a visitor's browser shows it. Same rules as a
-    replay: navigation only to the tool's own site, nothing on private addresses."""
+@asynccontextmanager
+async def _rendered_page(ctx: Context, url: str) -> AsyncIterator[Any]:
+    """The page after its scripts ran, as a visitor's browser shows it. Same rules as a replay:
+    navigation only to the tool's own site, nothing on private addresses. Images, media and
+    fonts are not loaded (their addresses are still in the page)."""
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
         try:
@@ -312,11 +317,43 @@ async def _rendered_text(ctx: Context, url: str) -> str:
                 await page.wait_for_load_state("networkidle", timeout=8000)
             except PlaywrightError:
                 pass
-            text = await page.evaluate("document.body ? document.body.innerText : ''")
+            yield page
         finally:
             await browser.close()
+
+
+async def _rendered_text(ctx: Context, url: str) -> str:
+    async with _rendered_page(ctx, url) as page:
+        text = await page.evaluate("document.body ? document.body.innerText : ''")
     text = re.sub(r"[ \t]+", " ", text or "")
     return re.sub(r"\n\s*\n+", "\n", text).strip()[:TEXT_LIMIT]
+
+
+async def _items(tool: Tool, ctx: Context) -> RunResult:
+    """A catalog (menu, products...) as items: name, description, price, image, link. Read with the
+    selector the crawl found, or from the page's JSON-LD; see catalog.py."""
+    sources = tool.runner.get("sources") or []
+    if not sources:
+        return RunResult(False, "The tool has no page to read.")
+    items: list[dict[str, Any]] = []
+    for src in sources:
+        url = resolve_url(ctx, src.get("url", ""))
+        ensure_allowed(ctx, url)
+        try:
+            async with _rendered_page(ctx, url) as page:
+                if src.get("jsonld"):
+                    raw = catalog.jsonld_items(await page.evaluate(catalog.JSONLD_JS))
+                else:
+                    raw = await page.evaluate(catalog.ITEMS_JS, {"selector": src.get("item_selector", ""), "names": src.get("names", [])})
+        except PlaywrightError as exc:
+            return RunResult(False, f"Could not open {urlsplit(url).path or '/'}: {str(exc).splitlines()[0][:120]}")
+        items += catalog.normalize(raw, url)
+    if not items:
+        return RunResult(False, "No items were found where the list used to be. The page may have changed: crawl the website again.", status=200)
+    items = list({i["id"]: i for i in reversed(items)}.values())[::-1][: catalog.MAX_ITEMS]  # one of each across pages
+    title = tool.runner.get("title") or "Items"
+    text = "\n".join(f"{i['name']} | {i['price'] or 'no price'} | {i['description']}" for i in items)
+    return RunResult(True, f"Found {len(items)} items.", output={"title": title, "items": items}, text=text, status=200)
 
 
 def _owner(tool: Tool, ctx: Context) -> RunResult:
@@ -400,6 +437,8 @@ async def run(tool: Tool, ctx: Context, values: dict[str, Any], *, dry: bool = F
         return await _http(tool, ctx, values, dry)
     if kind == "page_extract":
         return await _page(tool, ctx)
+    if kind == "item_list":
+        return await _items(tool, ctx)
     if kind == "owner_data":
         return _owner(tool, ctx)
     if kind == "browser_replay":

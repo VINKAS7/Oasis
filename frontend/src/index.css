@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
-/* A Notion-like look: warm greys, one blue accent, quiet borders, generous whitespace.
-   The stone palette is remapped to Notion's greys, and "brand" is Notion's blue, so every
-   page picks the look up from these tokens. */
+/* Dark mode follows the `dark` class on <html> (set from the theme toggle, see lib/theme.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* A Notion-like look in Oasis colours: warm greys, the logo's teal as the one accent, quiet
+   borders, generous whitespace. Every page takes its colours from these tokens, and dark mode
+   only swaps their values (below), so no component needs dark: classes. The grey scale and
+   white flip in dark mode: stone-800 is the main text colour in both, white the page. */
 @theme {
   --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Helvetica, "Apple Color Emoji", Arial, sans-serif;
 
@@ -15,18 +19,97 @@
   --color-stone-600: #6b6a66;
   --color-stone-700: #4c4b47;
   --color-stone-800: #37352f;
-  --color-stone-900: #2f2e2b;
+  --color-stone-900: #0b0e13;
+  --color-white: #ffffff;
 
-  --color-brand-50: #e7f3f8;
-  --color-brand-100: #d3e5ef;
-  --color-brand-500: #529cca;
-  --color-brand-600: #2383e2;
-  --color-brand-700: #2383e2;
-  --color-brand-800: #0b6bcb;
+  /* The logo's teal; deeper shades where white text or small links sit on it. */
+  --color-brand-50: #e8faf6;
+  --color-brand-100: #c9f2ea;
+  --color-brand-500: #2de2c8;
+  --color-brand-600: #14b8a0;
+  --color-brand-700: #0d8a78;
+  --color-brand-800: #0a6f61;
+  --color-logo-teal: #1fc9ae;
 
   --color-sidebar: #f7f7f5;
   --color-hover: rgba(55, 53, 47, 0.08);
   --color-line: rgba(55, 53, 47, 0.09);
+
+  /* Tags (badges) and callouts: Notion's palette, as named tokens so dark mode can swap them. */
+  --color-tag-gray: #e3e2e0;
+  --color-tag-gray-ink: #32302c;
+  --color-tag-green: #dbeddb;
+  --color-tag-green-ink: #1c3829;
+  --color-tag-amber: #fdecc8;
+  --color-tag-amber-ink: #402c1b;
+  --color-tag-red: #ffe2dd;
+  --color-tag-red-ink: #5d1715;
+  --color-tag-blue: #d3e5ef;
+  --color-tag-blue-ink: #183347;
+  --color-tag-purple: #e8deee;
+  --color-tag-purple-ink: #412454;
+  --color-soft-gray: #f1f1ef;
+  --color-soft-red: #fdebec;
+  --color-soft-red-ink: #9f2f2d;
+  --color-soft-yellow: #fbf3db;
+  --color-soft-yellow-ink: #6d4f0b;
+  --color-soft-green: #edf3ec;
+  --color-soft-green-ink: #2b593f;
+  --color-soft-blue: #e7f3f8;
+  --color-soft-blue-ink: #1f4f73;
+  --color-danger: #d44c47;
+  --color-danger-dot: #e16259;
+}
+
+/* Dark: the logo's near-black and off-white. */
+.dark {
+  --color-stone-50: #12161d;
+  --color-stone-100: #181d25;
+  --color-stone-200: #252b34;
+  --color-stone-300: #323943;
+  --color-stone-400: #6e7682;
+  --color-stone-500: #8e96a1;
+  --color-stone-600: #a7aeb7;
+  --color-stone-700: #c8ccd2;
+  --color-stone-800: #e6e6e1;
+  --color-stone-900: #f4f3ee;
+  --color-white: #0b0e13;
+
+  --color-brand-50: rgba(45, 226, 200, 0.1);
+  --color-brand-100: rgba(45, 226, 200, 0.2);
+  --color-brand-500: #2de2c8;
+  --color-brand-600: #2de2c8;
+  --color-brand-700: #2de2c8; /* buttons: bright teal with dark text, like the app icon */
+  --color-brand-800: #6ff0dc; /* links */
+  --color-logo-teal: #2de2c8;
+
+  --color-sidebar: #0f1318;
+  --color-hover: rgba(244, 243, 238, 0.08);
+  --color-line: rgba(244, 243, 238, 0.09);
+
+  --color-tag-gray: rgba(244, 243, 238, 0.1);
+  --color-tag-gray-ink: #d8d8d3;
+  --color-tag-green: rgba(60, 180, 110, 0.22);
+  --color-tag-green-ink: #a3e6bb;
+  --color-tag-amber: rgba(225, 165, 45, 0.22);
+  --color-tag-amber-ink: #f3d08c;
+  --color-tag-red: rgba(235, 95, 85, 0.22);
+  --color-tag-red-ink: #ffb4ab;
+  --color-tag-blue: rgba(75, 145, 225, 0.22);
+  --color-tag-blue-ink: #abcff2;
+  --color-tag-purple: rgba(155, 105, 210, 0.24);
+  --color-tag-purple-ink: #d8bff2;
+  --color-soft-gray: rgba(244, 243, 238, 0.06);
+  --color-soft-red: rgba(235, 95, 85, 0.14);
+  --color-soft-red-ink: #ffb4ab;
+  --color-soft-yellow: rgba(225, 175, 55, 0.14);
+  --color-soft-yellow-ink: #f0d590;
+  --color-soft-green: rgba(60, 180, 110, 0.14);
+  --color-soft-green-ink: #a8e4bd;
+  --color-soft-blue: rgba(75, 145, 225, 0.14);
+  --color-soft-blue-ink: #abcff2;
+  --color-danger: #ff7b72;
+  --color-danger-dot: #e5534b;
 }
 
 html,
@@ -41,5 +124,5 @@ body {
 }
 
 ::selection {
-  background: rgba(35, 131, 226, 0.28);
+  background: rgba(45, 226, 200, 0.3);
 }

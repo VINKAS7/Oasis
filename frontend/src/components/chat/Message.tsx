@@ -1,5 +1,6 @@
 import { Check, CircleAlert, Loader2, MapPin, ShieldCheck, Sparkles, Store, X } from "lucide-react";
-import type { ChatBusiness, ChatStep, ChatTurn } from "../../types";
+import type { ChatBusiness, ChatCatalog, ChatStep, ChatTurn } from "../../types";
+import { ItemGrid } from "./ItemGrid";
 import { Button, cx } from "../ui";
 
 const pretty = (name: string) => name.replace(/^(get|list)_/, "").replace(/_/g, " ");
@@ -130,7 +131,7 @@ export function UserMessage({ turn }: { turn: ChatTurn }) {
   );
 }
 
-export function AssistantMessage({ turn, busy, onConfirm, onCancel }: { turn: ChatTurn; busy: boolean; onConfirm: () => void; onCancel: () => void }) {
+export function AssistantMessage({ turn, busy, onConfirm, onCancel, onCatalog }: { turn: ChatTurn; busy: boolean; onConfirm: () => void; onCancel: () => void; onCatalog: (c: ChatCatalog) => void }) {
   const thinking = busy && !turn.text && !turn.error && !(turn.steps ?? []).some((s) => !s.done);
   return (
     <div className="flex gap-3">
@@ -164,9 +165,10 @@ export function AssistantMessage({ turn, busy, onConfirm, onCancel }: { turn: Ch
             <Linkified text={turn.text} />
           </div>
         )}
+        {turn.catalog && <ItemGrid c={turn.catalog} onChange={onCatalog} />}
         {turn.confirm && <ConfirmCard turn={turn} onConfirm={onConfirm} onCancel={onCancel} />}
         {turn.error && (
-          <div className="flex items-start gap-2 rounded-lg bg-[#fdebec] px-3 py-2 text-sm text-[#9f2f2d]">
+          <div className="flex items-start gap-2 rounded-lg bg-soft-red px-3 py-2 text-sm text-soft-red-ink">
             <CircleAlert className="mt-0.5 size-4 shrink-0" /> {turn.error}
           </div>
         )}

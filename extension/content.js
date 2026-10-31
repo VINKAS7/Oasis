@@ -1,7 +1,7 @@
 // Runs in every page and frame, but stays asleep unless this tab is being recorded.
 // - In the recording tab: reports clicks, typing, choices and submits to the background
 //   worker, and shows the owner's step panel (top frame only).
-// - On AgentReady's /extension/connect page: passes the signed-in session to the extension.
+// - On Oasis's /extension/connect page: passes the signed-in session to the extension.
 (() => {
   if (window.__agentReadyRecorder) return;
   window.__agentReadyRecorder = true;
@@ -22,7 +22,7 @@
       }
     });
 
-  // --- AgentReady's connect page ----------------------------------------------------------
+  // --- Oasis's connect page ----------------------------------------------------------
   if (isTop && location.pathname.startsWith("/extension/connect")) {
     window.addEventListener("message", async (e) => {
       if (e.source !== window || e.data?.source !== "agentready-app") return;
@@ -189,16 +189,16 @@
     .meta { color: #787774; font-size: 12px; margin: 2px 0 8px; }
     textarea { box-sizing: border-box; width: 100%; min-height: 58px; resize: vertical; font: inherit; color: inherit; padding: 6px 8px;
       border: 1px solid rgba(55,53,47,.16); border-radius: 6px; background: #fbfbfa; }
-    textarea:focus { outline: 2px solid rgba(35,131,226,.35); border-color: #2383e2; background: #fff; }
+    textarea:focus { outline: 2px solid rgba(13,138,120,.35); border-color: #0d8a78; background: #fff; }
     .row { display: flex; gap: 6px; margin-top: 8px; }
     button.b { flex: 1; font: inherit; font-weight: 500; padding: 6px 8px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(55,53,47,.16);
       background: #fff; color: #37352f; }
     button.b:hover { background: rgba(55,53,47,.06); }
-    button.primary { background: #2383e2; border-color: #2383e2; color: #fff; }
+    button.primary { background: #0d8a78; border-color: #0d8a78; color: #fff; }
     button.primary:hover { background: #0077d4; }
     button.link { flex: 0 0 auto; white-space: nowrap; border: 0; background: none; color: #787774; padding-left: 0; }
     .hint { color: #787774; font-size: 12px; margin-top: 8px; }
-    .done a { color: #2383e2; font-weight: 600; }
+    .done a { color: #0d8a78; font-weight: 600; }
     .hidden { display: none; }`;
 
   let panel = null;
@@ -276,7 +276,7 @@
       a.href = msg.url;
       a.target = "_blank";
       a.rel = "noreferrer";
-      a.textContent = "Continue in AgentReady →";
+      a.textContent = "Continue in Oasis →";
       done.append("Passwords and personal details were masked. ", a);
     } else {
       done.textContent = `${msg.error || "Could not upload."} Open the extension to try again.`;

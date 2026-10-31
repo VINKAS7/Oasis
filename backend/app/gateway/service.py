@@ -17,7 +17,7 @@ from ..checks import security
 from ..recorder.clean import MASK, mask_data
 from ..registry.rules import inputs_from_schema
 from ..runner import engine
-from . import signing
+from . import orders, signing
 
 PUBLISHED = {"safe_working", "sensitive"}
 BUSINESS_LIMIT_PER_MIN = 120
@@ -74,8 +74,9 @@ def published_tools(conn, business_id: str) -> list[dict[str, Any]]:
 
 def list_tools(business_id: str) -> list[dict[str, Any]]:
     with db.session() as conn:
-        _live_business(conn, business_id)
+        business = dict(_live_business(conn, business_id))
         tools = published_tools(conn, business_id)
+        takes_orders = orders.available(conn, business)
         rules = conn.execute("SELECT * FROM owner_rules WHERE business_id = ? AND active = 1", (business_id,)).fetchall()
     out = []
     for t in tools:
@@ -91,6 +92,8 @@ def list_tools(business_id: str) -> list[dict[str, Any]]:
             "owner_rules": tool_rules,
             "note": "Ask the user first, then call with user_confirmed=true." if sensitive else "Read-only; call freely.",
         })
+    if takes_orders:
+        out += orders.tool_entries()
     return out
 
 
@@ -145,6 +148,12 @@ async def call_tool(business_id: str, name: str, inputs: dict[str, Any], user_co
     inputs = dict(inputs or {})
     with db.session() as conn:
         business = dict(_live_business(conn, business_id))
+    if name in orders.NAMES:  # the Oasis order inbox, not a tool of the business's own
+        try:
+            return await orders.request(business, inputs, user_confirmed) if name == orders.REQUEST else orders.status(business, inputs)
+        except orders.OrderError as exc:
+            raise GatewayError(exc.outcome, exc.message, **exc.extra) from exc
+    with db.session() as conn:
         tool = next((t for t in published_tools(conn, business_id) if t["name"] == name), None)
         if tool is None:
             _log(business_id, None, name, "not_published", inputs, message="Not a published tool")
@@ -201,4 +210,11 @@ async def call_tool(business_id: str, name: str, inputs: dict[str, Any], user_co
     personal_values = {str(inputs[k]) for k, v in masked.items() if v == MASK and k in inputs}
     _log(business_id, tool, name, "ok", masked, result=mask_data(result.output, personal_values), message=result.message, started=started)
     signed = signing.sign(business_id, {"business_id": business_id, "business_name": business["name"], "tool": name, "version": tool["version"], "result": result.output})
-    return {"ok": True, "business": business["name"], "tool": name, "result": result.output, "signed": signed}
+    out = {"ok": True, "business": business["name"], "tool": name, "result": result.output, "signed": signed}
+    if run_tool.runner.get("kind") == "item_list":
+        orders.save_snapshot(business_id, tool["tool_id"], result.output)
+        with db.session() as conn:
+            out["can_order"] = orders.available(conn, business)
+        out["note"] = ("Each item has an id; order with call_business_tool(request_order)." if out["can_order"]
+                       else "This business doesn't take orders through Oasis.")
+    return out

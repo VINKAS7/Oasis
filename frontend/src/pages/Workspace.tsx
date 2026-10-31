@@ -28,6 +28,7 @@ import { LiveRecordingBanner, RecordingsPanel } from "../components/RecordingsPa
 import { ProposalBanners, ToolsPanel } from "../components/ToolsPanel";
 import { AlertsBanner } from "../components/AlertsBanner";
 import { LivePanel } from "../components/LivePanel";
+import { OrdersPanel } from "../components/OrdersPanel";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, PageLoader } from "../components/ui";
 import { PageTitle } from "../components/Layout";
 
@@ -530,6 +531,7 @@ export function WorkspacePage() {
           <AlertsBanner businessId={workspace.id} alerts={alerts} onSeen={load} />
           <ProposalBanners businessId={workspace.id} proposals={proposals} />
           <ToolsPanel businessId={workspace.id} tools={tools} onChange={load} />
+          <OrdersPanel businessId={workspace.id} onChange={load} />
           {liveInfo && (
             <LivePanel
               businessId={workspace.id}

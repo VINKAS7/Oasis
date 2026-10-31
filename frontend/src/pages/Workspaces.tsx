@@ -33,7 +33,7 @@ export function WorkspacesPage() {
       <PageTitle
         icon={<Home className="size-10" strokeWidth={1.5} />}
         title={`${greeting()}${first ? `, ${first}` : ""}`}
-        subtitle="Each workspace is one business or website of any kind. AgentReady reads the site, you record what only you know, and AI assistants can then find it and act for its customers."
+        subtitle="Each workspace is one business or website of any kind. Oasis reads the site, you record what only you know, and AI assistants can then find it and act for its customers."
       />
 
       <SectionTitle
@@ -69,6 +69,7 @@ export function WorkspacesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <Icon className="size-7 text-stone-600" strokeWidth={1.5} />
                   <div className="flex flex-wrap justify-end gap-1">
+                    {w.pending_orders > 0 && <Badge tone="amber">{w.pending_orders} new order{w.pending_orders === 1 ? "" : "s"}</Badge>}
                     {w.status === "live" && <Badge tone="green">MCP server live</Badge>}
                     {w.latest_run && <CrawlBadge run={w.latest_run} />}
                   </div>
@@ -93,7 +94,7 @@ export function WorkspacesPage() {
       <Callout icon={<PlugZap className="size-4" />}>
         Bookings, orders, enquiries and other actions are recorded with the{" "}
         <Link to="/extension" className="font-medium underline decoration-stone-300 underline-offset-2 hover:decoration-stone-500">
-          AgentReady Recorder extension
+          Oasis Recorder extension
         </Link>{" "}
         for Chrome: you do the task once on your own website, and it saves the steps to your workspace.
       </Callout>

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { Link } from "react-router-dom";
 import { ArrowUp, Building2, LocateFixed, MapPin, Menu, SquarePen, Square, Trash2, X } from "lucide-react";
 import { AssistantMessage, UserMessage } from "../components/chat/Message";
+import { OasisLogo, OasisMark } from "../components/Brand";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { cx } from "../components/ui";
 import { knownBusinesses, loadThreads, newId, saveThreads, streamChat, toMessages } from "../lib/chat";
 import type { ChatEvent, ChatThread, ChatTurn } from "../types";
@@ -40,6 +42,10 @@ function applyEvent(turn: ChatTurn, e: ChatEvent): ChatTurn {
     }
     case "reply":
       return { ...turn, text: e.text };
+    case "items": {
+      const { type: _type, ...catalog } = e;
+      return { ...turn, catalog: { ...catalog, cart: {} } };
+    }
     case "error":
       return { ...turn, error: e.message };
     default:
@@ -115,7 +121,7 @@ function LocationPill({ place, onChange }: { place: Place | null; onChange: (p: 
                 Set
               </button>
             </form>
-            {error && <p className="mt-2 text-xs text-[#9f2f2d]">{error}</p>}
+            {error && <p className="mt-2 text-xs text-soft-red-ink">{error}</p>}
             {place && (
               <button type="button" onClick={() => (onChange(null), setOpen(false))} className="mt-2 text-xs text-stone-500 hover:underline">
                 Forget my location
@@ -134,7 +140,7 @@ function ThreadList({ threads, activeId, onPick, onNew, onDelete }: { threads: C
     <div className="flex h-full flex-col px-2 py-3">
       <div className="flex items-center justify-between px-2 pb-3">
         <span className="flex items-center gap-2 font-semibold text-stone-800">
-          <img src="/favicon.svg" alt="" className="size-6" /> AgentReady
+          <OasisLogo />
         </span>
       </div>
       <button onClick={onNew} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-stone-700 hover:bg-hover">
@@ -277,7 +283,7 @@ export function ChatPage() {
       <aside className="hidden w-64 shrink-0 bg-sidebar md:block">{list}</aside>
       {menuOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-stone-900/30" onClick={() => setMenuOpen(false)} />
+          <div className="absolute inset-0 bg-black/30" onClick={() => setMenuOpen(false)} />
           <aside className="relative h-full w-72 bg-sidebar shadow-xl">
             <button onClick={() => setMenuOpen(false)} className="absolute top-3 right-2 rounded p-1 text-stone-500 hover:bg-hover" aria-label="Close menu">
               <X className="size-4" />
@@ -297,13 +303,16 @@ export function ChatPage() {
               <SquarePen className="size-4" />
             </button>
           </div>
-          <LocationPill place={place} onChange={setPlace} />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <LocationPill place={place} onChange={setPlace} />
+          </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {turns.length === 0 ? (
             <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center px-4 pb-16 text-center">
-              <img src="/favicon.svg" alt="" className="mb-4 size-10" />
+              <OasisMark className="mb-5 size-12 text-stone-900" />
               <h1 className="text-3xl font-semibold tracking-tight text-stone-800">What are you looking for?</h1>
               <p className="mt-2 text-stone-500">Find places nearby, check menus, prices and opening hours, and book, all by asking.</p>
               <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
@@ -320,7 +329,14 @@ export function ChatPage() {
                 t.role === "user" ? (
                   <UserMessage key={t.id} turn={t} />
                 ) : (
-                  <AssistantMessage key={t.id} turn={t} busy={busy && i === turns.length - 1} onConfirm={() => confirm(t)} onCancel={() => cancel(t)} />
+                  <AssistantMessage
+                    key={t.id}
+                    turn={t}
+                    busy={busy && i === turns.length - 1}
+                    onConfirm={() => confirm(t)}
+                    onCancel={() => cancel(t)}
+                    onCatalog={(catalog) => thread && updateTurn(thread.id, t.id, (x) => ({ ...x, catalog }))}
+                  />
                 ),
               )}
               <div ref={bottom} />
@@ -354,7 +370,7 @@ export function ChatPage() {
               </button>
             )}
           </form>
-          <p className="mt-2 text-center text-xs text-stone-400">Answers come from the businesses' own AgentReady tools. Bookings always wait for your OK.</p>
+          <p className="mt-2 text-center text-xs text-stone-400">Answers come from the businesses' own Oasis tools. Bookings always wait for your OK.</p>
         </div>
       </main>
     </div>

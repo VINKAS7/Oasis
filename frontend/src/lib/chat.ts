@@ -1,5 +1,5 @@
-import type { ChatEvent, ChatThread, ChatTurn } from "../types";
-import { ApiError } from "./api";
+import type { ChatCatalog, ChatEvent, ChatOrder, ChatThread, ChatTurn } from "../types";
+import { ApiError, api } from "./api";
 
 /** POSTs to the chat API and calls onEvent for each NDJSON line as it streams in. */
 export async function streamChat(path: string, body: unknown, onEvent: (e: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
@@ -53,3 +53,31 @@ export function saveThreads(threads: ChatThread[]): void {
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
+
+export interface OrderDetails {
+  customer_name: string;
+  customer_contact: string;
+  pickup_time: string;
+  note: string;
+}
+
+/** Sends the order the visitor reviewed. Their click on Send order is the confirmation. */
+export function sendOrder(c: ChatCatalog, details: OrderDetails): Promise<ChatOrder> {
+  const items = Object.entries(c.cart).filter(([, q]) => q > 0).map(([id, quantity]) => ({ id, quantity }));
+  return api<ChatOrder>("/api/chat/order", { method: "POST", json: { business_id: c.business_id, items, ...details } });
+}
+
+export function orderStatus(c: ChatCatalog): Promise<{ status: ChatOrder["status"]; owner_note: string }> {
+  const o = c.order!;
+  const q = new URLSearchParams({ business_id: c.business_id, token: o.status_token });
+  return api(`/api/chat/orders/${o.order_id}?${q}`);
+}
+
+export function money(amount: number | null | undefined, currency: string): string {
+  if (amount === null || amount === undefined) return "";
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "CHF" }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`.trim();
+  }
+}

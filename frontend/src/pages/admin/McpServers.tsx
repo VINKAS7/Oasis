@@ -89,7 +89,7 @@ export function AdminMcpServers() {
                       title={t.published ? (isLive ? "On the server" : "Checked, goes on the server when published") : `Not on the server (${t.enabled ? t.badge ?? "unchecked" : "switched off"})`}
                       className={cx(
                         "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-xs",
-                        t.published ? "border-[#dbeddb] bg-[#edf3ec] text-[#1c3829]" : "border-stone-200 text-stone-400 line-through",
+                        t.published ? "border-tag-green bg-soft-green text-tag-green-ink" : "border-stone-200 text-stone-400 line-through",
                       )}
                     >
                       {t.name}

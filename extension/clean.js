@@ -1,5 +1,5 @@
 // What a recording may keep, applied in the browser before anything is uploaded. The
-// AgentReady server cleans every upload again with the same rules (backend/app/recorder/clean.py).
+// Oasis server cleans every upload again with the same rules (backend/app/recorder/clean.py).
 
 export const MASK = "[MASKED]";
 const BODY_LIMIT = 20000;

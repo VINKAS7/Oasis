@@ -1,4 +1,4 @@
-"""Kinds of business AgentReady supports: any local business, and any website.
+"""Kinds of business Oasis supports: any local business, and any website.
 
 Each category says which read-only tools a customer's AI assistant will expect, and which
 actions (flows) the owner will probably need to record. Anything not listed fits "other"

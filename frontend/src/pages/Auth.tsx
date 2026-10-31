@@ -1,19 +1,22 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { signIn, signUp } from "../lib/auth-client";
+import { OasisLogo } from "../components/Brand";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { Button, ErrorNote, Field, Input } from "../components/ui";
 
 function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle: string; children: ReactNode; footer: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center px-6">
+    <div className="relative flex min-h-screen flex-col items-center px-6">
+      <ThemeToggle className="absolute top-3 right-3" />
       <div className="flex w-full max-w-sm flex-1 flex-col justify-center py-16">
-        <img src="/favicon.svg" alt="" className="mb-6 size-10" />
+        <OasisLogo size="lg" className="mb-8" />
         <h1 className="text-[1.75rem] leading-tight font-bold tracking-tight text-stone-800">{title}</h1>
         <p className="mt-1.5 text-stone-500">{subtitle}</p>
         <div className="mt-8">{children}</div>
         <p className="mt-6 text-sm text-stone-500">{footer}</p>
       </div>
-      <p className="pb-6 text-xs text-stone-400">AgentReady makes any business or website usable by AI assistants.</p>
+      <p className="pb-6 text-xs text-stone-400">Oasis makes any business or website usable by AI assistants.</p>
     </div>
   );
 }
@@ -23,7 +26,7 @@ function AuthShell({ title, subtitle, children, footer }: { title: string; subti
 function authErrorText(error: { message?: string; status?: number }, fallback: string): string {
   if (error.message) return error.message;
   if (!error.status || error.status >= 500) {
-    return "The sign-in service isn't answering. If you run AgentReady yourself, start everything with npm run dev (the auth service runs on port 3001).";
+    return "The sign-in service isn't answering. If you run Oasis yourself, start everything with npm run dev (the auth service runs on port 3001).";
   }
   return fallback;
 }
@@ -45,7 +48,7 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      title="Log in to AgentReady"
+      title="Log in to Oasis"
       subtitle="Welcome back."
       footer={
         <>

@@ -10,7 +10,7 @@ const VARIANTS: Record<Variant, string> = {
   primary: "bg-brand-700 text-white hover:bg-brand-800",
   secondary: "bg-white text-stone-800 border border-stone-200 hover:bg-hover",
   ghost: "text-stone-500 hover:bg-hover hover:text-stone-800",
-  danger: "bg-white text-[#d44c47] border border-stone-200 hover:bg-[#fdebec]",
+  danger: "bg-white text-danger border border-stone-200 hover:bg-soft-red",
 };
 
 export function Button({
@@ -121,12 +121,12 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
 type Tone = "neutral" | "green" | "amber" | "red" | "blue" | "teal";
 // Notion's tag colours.
 const TONES: Record<Tone, string> = {
-  neutral: "bg-[#e3e2e0] text-[#32302c]",
-  green: "bg-[#dbeddb] text-[#1c3829]",
-  amber: "bg-[#fdecc8] text-[#402c1b]",
-  red: "bg-[#ffe2dd] text-[#5d1715]",
-  blue: "bg-[#d3e5ef] text-[#183347]",
-  teal: "bg-[#e8deee] text-[#412454]",
+  neutral: "bg-tag-gray text-tag-gray-ink",
+  green: "bg-tag-green text-tag-green-ink",
+  amber: "bg-tag-amber text-tag-amber-ink",
+  red: "bg-tag-red text-tag-red-ink",
+  blue: "bg-tag-blue text-tag-blue-ink",
+  teal: "bg-tag-purple text-tag-purple-ink",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
@@ -147,11 +147,11 @@ export function PageLoader() {
 
 type CalloutTone = "gray" | "red" | "yellow" | "green" | "blue";
 const CALLOUTS: Record<CalloutTone, string> = {
-  gray: "bg-[#f1f1ef] text-stone-800",
-  red: "bg-[#fdebec] text-[#9f2f2d]",
-  yellow: "bg-[#fbf3db] text-[#6d4f0b]",
-  green: "bg-[#edf3ec] text-[#2b593f]",
-  blue: "bg-[#e7f3f8] text-[#1f4f73]",
+  gray: "bg-soft-gray text-stone-800",
+  red: "bg-soft-red text-soft-red-ink",
+  yellow: "bg-soft-yellow text-soft-yellow-ink",
+  green: "bg-soft-green text-soft-green-ink",
+  blue: "bg-soft-blue text-soft-blue-ink",
 };
 
 export function Callout({ tone = "gray", icon, children, className }: { tone?: CalloutTone; icon?: ReactNode; children: ReactNode; className?: string }) {

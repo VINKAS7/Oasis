@@ -130,7 +130,7 @@ export function RealTestDialog({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg space-y-4 rounded-xl bg-white p-5 shadow-xl">
         <h2 className="font-semibold">Run a real test of “{version.title}”</h2>
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">

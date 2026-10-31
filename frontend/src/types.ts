@@ -152,6 +152,42 @@ export interface Workspace extends Omit<WorkspaceInput, "hours"> {
   created_at: string;
   updated_at: string;
   latest_run: CrawlRun | null;
+  /** Takes orders through Oasis's order inbox. */
+  accepts_orders: boolean;
+  pending_orders: number;
+}
+
+// --- order inbox ----------------------------------------------------------------------------
+
+export interface OrderLine {
+  id: string;
+  name: string;
+  quantity: number;
+  amount: number | null;
+  currency: string;
+}
+
+export interface Order {
+  id: string;
+  business_id: string;
+  items: OrderLine[];
+  total: number | null;
+  currency: string;
+  customer_name: string;
+  customer_contact: string;
+  pickup_time: string;
+  note: string;
+  status: "pending" | "accepted" | "declined";
+  owner_note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrdersInfo {
+  accepts_orders: boolean;
+  has_catalog: boolean;
+  pending: number;
+  orders: Order[];
 }
 
 // --- admin -------------------------------------------------------------------------------
@@ -552,8 +588,44 @@ export type ChatEvent =
   | { type: "result"; tool: string; ok: boolean; summary: string; businesses?: ChatBusiness[] }
   | ({ type: "confirm" } & ChatConfirm)
   | { type: "reply"; text: string }
+  | ({ type: "items" } & Omit<ChatCatalog, "cart" | "order">)
   | { type: "error"; message: string }
   | { type: "done" };
+
+/** One entry of a catalog (menu, products...) as an item_list tool returns it. */
+export interface CatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  section: string;
+  price: string;
+  amount: number | null;
+  currency: string;
+  image_url: string;
+  url: string;
+}
+
+export interface ChatOrder {
+  order_id: string;
+  status_token: string;
+  status: "pending" | "accepted" | "declined";
+  owner_note?: string;
+  lines: OrderLine[];
+  total: number | null;
+  currency: string;
+}
+
+/** A catalog shown in the chat, with the visitor's picks and, once sent, their order. */
+export interface ChatCatalog {
+  business_id: string;
+  business_name: string;
+  tool: string;
+  title: string;
+  items: CatalogItem[];
+  orderable: boolean;
+  cart: Record<string, number>;
+  order?: ChatOrder;
+}
 
 export interface ChatStep {
   tool: string;
@@ -570,6 +642,7 @@ export interface ChatTurn {
   steps?: ChatStep[];
   businesses?: ChatBusiness[];
   confirm?: ChatConfirm & { state: "pending" | "confirmed" | "cancelled" };
+  catalog?: ChatCatalog;
   error?: string;
 }
 

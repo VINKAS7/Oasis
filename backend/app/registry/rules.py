@@ -79,6 +79,8 @@ def job_key(runner: dict[str, Any]) -> str | None:
             return f"replay {submits[-1].get('page', '')} {submits[-1].get('selector', '')}"
     if runner.get("kind") == "page_extract":
         return "extract " + ",".join(sorted(runner.get("source_urls", [])))
+    if runner.get("kind") == "item_list":
+        return "items " + ",".join(sorted(s.get("url", "") for s in runner.get("sources", [])))
     return None
 
 
@@ -171,6 +173,10 @@ def check(tool: dict[str, Any], *, site: str, seen_hosts: set[str], seen_request
                 host = urlsplit(url).hostname or ""
                 if host and host not in seen_hosts and not safety.same_site(url, site):
                     flags.append({"kind": "blocked", "message": f"Opens {host}, which is neither your website nor part of your recording."})
+    elif kind == "item_list":
+        for src in runner.get("sources", []):
+            if not safety.same_site(urljoin(site, src.get("url", "")), site):
+                flags.append({"kind": "blocked", "message": f"Reads {urlsplit(src.get('url', '')).hostname}, which is not your website."})
     elif kind not in ("page_extract", "owner_data"):
         flags.append({"kind": "blocked", "message": f"Unknown way of running a tool: {kind}."})
 
@@ -193,6 +199,9 @@ def describe_runner(runner: dict[str, Any]) -> str:
         return f"Replays {len(runner.get('steps', []))} recorded steps in a hidden browser with the customer's values."
     if kind == "page_extract":
         return f"Reads {', '.join(urlsplit(u).path or '/' for u in runner.get('source_urls', [])) or 'your website'} and returns what it finds (refreshed daily)."
+    if kind == "item_list":
+        pages = ", ".join(urlsplit(s.get("url", "")).path or "/" for s in runner.get("sources", [])) or "your website"
+        return f"Reads the {runner.get('title', 'list').lower()} on {pages} as items (name, price, picture) customers can pick from."
     if kind == "owner_data":
         return f"Answers from your workspace details ({', '.join(runner.get('fields', []))})."
     return "Unknown."

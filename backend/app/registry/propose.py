@@ -113,7 +113,7 @@ PROPOSAL_SCHEMA = {
     },
 }
 
-SYSTEM = """You turn a flow that a business owner recorded on their own website (a booking, appointment, order, quote request, enquiry, sign-up...) into a tool that AI assistants can call for the people they help, for the AgentReady platform. You only propose; the platform checks your proposal against fixed rules and the owner approves it.
+SYSTEM = """You turn a flow that a business owner recorded on their own website (a booking, appointment, order, quote request, enquiry, sign-up...) into a tool that AI assistants can call for the people they help, for the Oasis platform. You only propose; the platform checks your proposal against fixed rules and the owner approves it.
 
 How to write the tool:
 - Prefer kind "http_request" when the recording shows one clean request that did the job (often the likely_request in the comparison); the tool then sends that request directly. Use "browser_replay" with the recorded steps only when there is no such request.
@@ -237,13 +237,16 @@ def from_crawl(business_id: str, run_id: int, user_id: str | None) -> str:
         if t.get("source") == "owner_data" or (t["name"] in ("get_opening_hours", "get_location_and_contact", "get_contact") and not t.get("source_urls")):
             default = {"get_opening_hours": ["hours"], "get_contact": ["phone", "website_url"]}.get(t["name"], ["address", "lat", "lng", "phone"])
             runner = {"kind": "owner_data", "fields": t.get("fields") or default}
+        elif t.get("catalog"):
+            # A menu, product grid...: items the chat can show as cards (see catalog.py).
+            runner = {"kind": "item_list", "title": t["catalog"]["title"], "sources": t["catalog"]["sources"]}
         else:
             runner = {"kind": "page_extract", "source_urls": t.get("source_urls", []), "refresh": "daily"}
         changes.append({
             "action": "update" if t["name"] in names else "add",
             "tool_name": t["name"],
-            "reason": "Found on your website." if runner["kind"] == "page_extract" else "From the details you entered.",
-            "tool": {**t, "sensitivity": "read_only", "runner": runner},
+            "reason": "From the details you entered." if runner["kind"] == "owner_data" else "Found on your website.",
+            "tool": {**{k: v for k, v in t.items() if k != "catalog"}, "sensitivity": "read_only", "runner": runner},
         })
     prop_id = _insert(business_id, "crawl", str(run_id), user_id)
     items = build_items(changes, existing, site=run["start_url"], seen_hosts=set(), seen_requests=set(), personal_names=set())

@@ -23,7 +23,7 @@ from . import service
 PATH = "/mcp/b/{business_id}"
 ABOUT = "about_business"
 
-INSTRUCTIONS = """This MCP server belongs to one business on AgentReady. Its tools are the business's own, published by the owner and checked by AgentReady.
+INSTRUCTIONS = """This MCP server belongs to one business on Oasis. Its tools are the business's own, published by the owner and checked by Oasis.
 
 1. Call about_business for what the business is, where it is, its hours and contact details.
 2. Tools whose description says the user must confirm take an action (book, order, send) or send personal details: tell the user exactly what will happen, wait for their yes, then call with user_confirmed=true.
@@ -75,7 +75,7 @@ class BusinessServer(MCPServer):
         try:
             return ListToolsResult(tools=tools_for(_business_id(ctx)))
         except service.GatewayError as exc:
-            raise MCPError(INVALID_REQUEST, "This business's MCP server isn't published. The owner can publish it in AgentReady.") from exc
+            raise MCPError(INVALID_REQUEST, "This business's MCP server isn't published. The owner can publish it in Oasis.") from exc
 
     async def _handle_call_tool(self, ctx: Any, params: Any) -> CallToolResult:
         business_id = _business_id(ctx)
@@ -89,7 +89,7 @@ class BusinessServer(MCPServer):
             return _result({"ok": False, "reason": e.outcome, "message": e.message, **e.extra}, error=True)
 
 
-mcp = BusinessServer(name="AgentReady business", title="A business on AgentReady", instructions=INSTRUCTIONS, version="0.1.0")
+mcp = BusinessServer(name="Oasis business", title="A business on Oasis", instructions=INSTRUCTIONS, version="0.1.0")
 
 
 def http_app():

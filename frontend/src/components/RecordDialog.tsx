@@ -78,7 +78,7 @@ export function RecordDialog({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-stone-900/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-white shadow-[0_16px_48px_rgba(15,15,15,0.2)]">
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div>
@@ -114,7 +114,7 @@ export function RecordDialog({
           {mode === "extension" && (
             <>
               <ol className="list-decimal space-y-1.5 pl-5 text-sm text-stone-700">
-                <li>Click the AgentReady Recorder icon in Chrome (log in once if it asks).</li>
+                <li>Click the Oasis Recorder icon in Chrome (log in once if it asks).</li>
                 <li>
                   Choose <b>{workspace.name}</b> and {flow ? <b>{flow.title}</b> : "what you're recording"}, then press <b>Start recording</b>.
                 </li>
@@ -126,10 +126,10 @@ export function RecordDialog({
               <Callout tone="yellow">What you do really happens on your site (a booking, order or message). Undo it afterwards in your own system.</Callout>
             </>
           )}
-          {mode === "upload" && <p className="text-sm text-stone-600">Upload a recording file (.json) made by AgentReady, for example one you downloaded earlier. It is cleaned again on upload.</p>}
+          {mode === "upload" && <p className="text-sm text-stone-600">Upload a recording file (.json) made by Oasis, for example one you downloaded earlier. It is cleaned again on upload.</p>}
           {mode === "server" && (
             <>
-              <p className="text-sm text-stone-600">Opens a browser window on the computer running the AgentReady server. Use this only when that computer is in front of you.</p>
+              <p className="text-sm text-stone-600">Opens a browser window on the computer running the Oasis server. Use this only when that computer is in front of you.</p>
               <Field label="Start page">
                 <Input value={startUrl} onChange={(e) => setStartUrl(e.target.value)} inputMode="url" />
               </Field>
