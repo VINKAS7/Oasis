@@ -1,0 +1,14 @@
+{
+  "name": "agentready",
+  "private": true,
+  "description": "AgentReady: turn a local business website into tools AI assistants can use.",
+  "scripts": {
+    "init-env": "node scripts/init-env.mjs",
+    "setup": "node scripts/init-env.mjs && npm --prefix auth install && npm --prefix frontend install && uv --directory backend sync && uv --directory backend run playwright install chromium",
+    "dev": "concurrently -k -n auth,api,web -c magenta,cyan,green \"npm --prefix auth run dev\" \"uv --directory backend run uvicorn app.main:app --reload --port 8000\" \"npm --prefix frontend run dev\"",
+    "build": "npm --prefix frontend run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
