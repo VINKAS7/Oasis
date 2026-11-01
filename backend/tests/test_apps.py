@@ -108,3 +108,30 @@ def test_oauth_discovery_is_404_not_the_web_app():
     for path in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource/mcp"):
         r = client.get(path)
         assert r.status_code == 404 and "<html" not in r.text.lower(), path
+
+
+def _ctx(name="", extensions=None, meta=None, agent=""):
+    from types import SimpleNamespace
+
+    from mcp import types
+
+    caps = types.ClientCapabilities.model_validate({"extensions": extensions} if extensions else {})
+    params = SimpleNamespace(clientInfo=types.Implementation(name=name, version="1"), capabilities=caps)
+    return SimpleNamespace(session=SimpleNamespace(client_params=params), request_context=SimpleNamespace(meta=meta or {}),
+                           headers={"user-agent": agent})
+
+
+def test_which_assistants_get_cards():
+    assert mcp_server.shows_cards(_ctx("Anthropic")) is True
+    assert mcp_server.shows_cards(_ctx("claude-ai")) is True
+    assert mcp_server.shows_cards(_ctx("mcp", meta={"openai/locale": "en-US"})) is True  # ChatGPT
+    assert mcp_server.shows_cards(_ctx("anything", extensions={"io.modelcontextprotocol/ui": {}})) is True
+    assert mcp_server.shows_cards(_ctx("oasis-chat")) is True  # the /chat page draws its own
+    assert mcp_server.shows_cards(_ctx("Gemini")) is False
+    assert mcp_server.shows_cards(_ctx("mcp", agent="Google-Extended Gemini")) is False
+    assert mcp_server.shows_cards(_ctx("some-ide")) is False
+
+
+def test_ask_user_in_text_only_apps():
+    r = mcp_server.ask_user(question="Which size?", kind="single_choice", options=["S", "M", "L"], ctx=_ctx("Gemini"))
+    assert r["ok"] and r["shown_as_card"] is False and "ask the user in plain text" in r["message"] and "S, M, L" in r["message"]

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Oasis MCP · Local businesses in ChatGPT and Claude</title>
-<meta name="description" content="Add Oasis to ChatGPT, Claude or any MCP client: find, browse and order from local businesses right in the chat." />
+<title>Oasis MCP · Local businesses in ChatGPT, Claude and Gemini</title>
+<meta name="description" content="Add Oasis to ChatGPT, Claude, Gemini or any MCP client: find, browse and order from local businesses right in the chat." />
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38.5' fill='none' stroke='%232DE2C8' stroke-width='10'/%3E%3Ccircle cx='50' cy='50' r='11.5' fill='%232DE2C8'/%3E%3C/svg%3E" />
 <link rel="preload" href="/mcp/inter.woff2" as="font" type="font/woff2" crossorigin />
 <script>
@@ -162,7 +162,11 @@
   .callout p { margin: 0; }
 
   /* Connect: two cards, like a Notion gallery. */
-  .connect { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 6px; }
+  .connect { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 18px 0 6px; }
+  .toggle-body .muted { color: var(--muted); font-size: 13.5px; margin: 10px 0 0; }
+  .gem { width: 14px; height: 14px; flex-shrink: 0; vertical-align: -2px; }
+  .app-icon .gem { width: 24px; height: 24px; }
+  summary .gem { width: 16px; height: 16px; margin-right: 2px; }
   .connect-card { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--stone-200); border-radius: 10px;
     background: var(--page); text-decoration: none; color: var(--ink); transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease; }
   .connect-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--teal) 45%, var(--stone-200)); transform: translateY(-1px); }
@@ -262,6 +266,8 @@
     <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 14.06 4 20" /><path d="m12 2 1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8Z" /></symbol>
     <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></symbol>
     <symbol id="i-text" viewBox="0 0 24 24"><path d="M17 6.1H3" /><path d="M21 12.1H3" /><path d="M15.1 18H3" /></symbol>
+    <linearGradient id="gem-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8bff" /><stop offset=".55" stop-color="#9b72f2" /><stop offset="1" stop-color="#e8668f" /></linearGradient>
+    <symbol id="i-gemini" viewBox="0 0 24 24"><path fill="url(#gem-grad)" stroke="none" d="M12 2c.6 5.2 4.8 9.4 10 10-5.2.6-9.4 4.8-10 10-.6-5.2-4.8-9.4-10-10 5.2-.6 9.4-4.8 10-10Z" /></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></symbol>
@@ -286,7 +292,7 @@
 <main class="page">
   <div class="page-icon"><svg><use href="#oasis-mark" /></svg></div>
   <h1 class="title">Oasis MCP</h1>
-  <p class="subtitle" data-i18n="subtitle">Find, browse and order from local businesses right inside ChatGPT and Claude.</p>
+  <p class="subtitle" data-i18n="subtitle">Find, browse and order from local businesses right inside ChatGPT, Claude and Gemini.</p>
 
   <div class="props">
     <div class="prop">
@@ -309,6 +315,7 @@
       <span class="prop-value">
         <span class="tag gray"><img src="/mcp/chatgpt.png" alt="" onerror="this.remove()" />ChatGPT</span>
         <span class="tag gray"><img src="/mcp/claude.png" alt="" onerror="this.remove()" />Claude</span>
+        <span class="tag gray"><svg class="gem" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gemini" /></svg>Gemini</span>
         <span class="tag gray">Claude Code</span>
         <span class="tag gray" data-i18n="anyClient">Any MCP client</span>
       </span>
@@ -333,11 +340,18 @@
       </div>
       <span class="connect-cta"><span data-i18n="ctaClaude">Connect to Claude</span> <svg class="i" style="width:14px;height:14px"><use href="#i-external" /></svg></span>
     </a>
+    <a class="connect-card" data-connect="Gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener">
+      <div class="connect-head">
+        <span class="app-icon"><svg class="gem" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gemini" /></svg></span>
+        <span><div class="connect-title">Gemini</div><div class="connect-sub" data-i18n="subGemini">Settings &amp; help → Connected apps</div></span>
+      </div>
+      <span class="connect-cta"><span data-i18n="ctaGemini">Connect to Gemini</span> <svg class="i" style="width:14px;height:14px"><use href="#i-external" /></svg></span>
+    </a>
   </div>
 
   <div class="callout gray">
     <span class="emoji">💡</span>
-    <p data-i18n="notListed">Oasis isn't in the ChatGPT or Claude app directories yet, so you add it as a <b>custom connector</b>. It takes about a minute, and the steps are below.</p>
+    <p data-i18n="notListed">Oasis isn't in the ChatGPT, Claude or Gemini app directories yet, so you add it as a <b>custom connector</b>. It takes about a minute, and the steps are below.</p>
   </div>
 
   <h2 data-i18n="howTo">How to connect</h2>
@@ -363,6 +377,18 @@
         <li data-i18n="cl3">Click <span class="chip">Add</span>. It works in Claude on the web, desktop and mobile.</li>
         <li data-i18n="cl4">In a chat, check that Oasis is on in the <span class="chip">Search and tools</span> menu.</li>
       </ol>
+    </div>
+  </details>
+
+  <details class="toggle">
+    <summary><span class="tri"><svg class="i" style="width:14px;height:14px"><use href="#i-chevron" /></svg></span><svg class="gem" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gemini" /></svg>Gemini</summary>
+    <div class="toggle-body">
+      <ol class="steps">
+        <li data-i18n="gem1">Open <a class="link" href="https://gemini.google.com/app" target="_blank" rel="noopener" data-connect="Gemini">Gemini</a>, then <span class="chip">Settings &amp; help</span> → <span class="chip">Connected apps</span>. In Gemini Enterprise: <span class="chip">Manage team</span> → <span class="chip">Connected apps</span>.</li>
+        <li data-i18n="gem2">Choose <span class="chip">Add custom app</span> (Enterprise: <span class="chip">Add MCP Server</span>), name it <b>Oasis</b>, paste the server address and choose <span class="chip">No authentication</span>.</li>
+        <li data-i18n="gem3">In a chat, type <span class="chip">@Oasis</span> before your question.</li>
+      </ol>
+      <p class="muted" data-i18n="gem4">In the Gemini app, Oasis answers as text; the interactive cards show in Claude, ChatGPT and Gemini Enterprise. Custom apps need a Google account and plan that offer them.</p>
     </div>
   </details>
 
@@ -434,7 +460,7 @@
   const T = {
     "fr": {
       "share": "Partager",
-      "subtitle": "Trouvez, parcourez et commandez auprès de commerces locaux directement dans ChatGPT et Claude.",
+      "subtitle": "Trouvez, parcourez et commandez auprès de commerces locaux directement dans ChatGPT, Claude et Gemini.",
       "server": "Serveur",
       "transport": "Transport",
       "auth": "Authentification",
@@ -447,7 +473,7 @@
       "ctaChatgpt": "Connecter à ChatGPT",
       "subClaude": "Réglages → Connectors",
       "ctaClaude": "Connecter à Claude",
-      "notListed": "Oasis n'est pas encore dans les répertoires d'apps de ChatGPT ou de Claude : vous l'ajoutez donc comme <b>connecteur personnalisé</b>. Cela prend environ une minute, et les étapes sont ci-dessous.",
+      "notListed": "Oasis n'est pas encore dans les répertoires d'apps de ChatGPT, Claude ou Gemini : vous l'ajoutez donc comme <b>connecteur personnalisé</b>. Cela prend environ une minute, et les étapes sont ci-dessous.",
       "howTo": "Comment se connecter",
       "gpt1": "Ouvrez les <a class=\"link\" href=\"https://chatgpt.com/#settings/Connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"ChatGPT\">réglages de ChatGPT</a> et allez dans <span class=\"chip\">Apps &amp; Connectors</span>.",
       "gpt2": "Sous <span class=\"chip\">Advanced settings</span>, activez le <span class=\"chip\">Developer mode</span>.",
@@ -458,6 +484,12 @@
       "cl3": "Cliquez sur <span class=\"chip\">Add</span>. Cela fonctionne dans Claude sur le web, sur ordinateur et sur mobile.",
       "cl4": "Dans une discussion, vérifiez qu'Oasis est activé dans le menu <span class=\"chip\">Search and tools</span>.",
       "otherClients": "Claude Code et autres clients MCP",
+      "subGemini": "Paramètres et aide → Applications connectées",
+      "ctaGemini": "Connecter à Gemini",
+      "gem1": "Ouvrez <a class=\"link\" href=\"https://gemini.google.com/app\" target=\"_blank\" rel=\"noopener\" data-connect=\"Gemini\">Gemini</a>, puis <span class=\"chip\">Settings &amp; help</span> → <span class=\"chip\">Connected apps</span>. Dans Gemini Enterprise : <span class=\"chip\">Manage team</span> → <span class=\"chip\">Connected apps</span>.",
+      "gem2": "Choisissez <span class=\"chip\">Add custom app</span> (Enterprise : <span class=\"chip\">Add MCP Server</span>), nommez-la <b>Oasis</b>, collez l'adresse du serveur et choisissez <span class=\"chip\">No authentication</span>.",
+      "gem3": "Dans une discussion, tapez <span class=\"chip\">@Oasis</span> avant votre question.",
+      "gem4": "Dans l'app Gemini, Oasis répond en texte ; les cartes interactives s'affichent dans Claude, ChatGPT et Gemini Enterprise. Les apps personnalisées demandent un compte Google et un abonnement qui les proposent.",
       "jsonClients": "Clients configurés en JSON :",
       "tryIt": "Essayez",
       "tryLede": "Une fois Oasis connecté, commencez par l'une de ces demandes.",
@@ -474,7 +506,7 @@
     },
     "it": {
       "share": "Condividi",
-      "subtitle": "Trova, sfoglia e ordina dalle attività locali direttamente in ChatGPT e Claude.",
+      "subtitle": "Trova, sfoglia e ordina dalle attività locali direttamente in ChatGPT, Claude e Gemini.",
       "server": "Server",
       "transport": "Trasporto",
       "auth": "Autenticazione",
@@ -487,7 +519,7 @@
       "ctaChatgpt": "Connetti a ChatGPT",
       "subClaude": "Impostazioni → Connectors",
       "ctaClaude": "Connetti a Claude",
-      "notListed": "Oasis non è ancora nelle directory delle app di ChatGPT o Claude, quindi lo aggiungi come <b>connettore personalizzato</b>. Ci vuole circa un minuto e i passaggi sono qui sotto.",
+      "notListed": "Oasis non è ancora nelle directory delle app di ChatGPT, Claude o Gemini, quindi lo aggiungi come <b>connettore personalizzato</b>. Ci vuole circa un minuto e i passaggi sono qui sotto.",
       "howTo": "Come connettersi",
       "gpt1": "Apri le <a class=\"link\" href=\"https://chatgpt.com/#settings/Connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"ChatGPT\">impostazioni di ChatGPT</a> e vai su <span class=\"chip\">Apps &amp; Connectors</span>.",
       "gpt2": "In <span class=\"chip\">Advanced settings</span>, attiva la <span class=\"chip\">Developer mode</span>.",
@@ -498,6 +530,12 @@
       "cl3": "Fai clic su <span class=\"chip\">Add</span>. Funziona in Claude sul web, su desktop e su mobile.",
       "cl4": "In una chat, controlla che Oasis sia attivo nel menu <span class=\"chip\">Search and tools</span>.",
       "otherClients": "Claude Code e altri client MCP",
+      "subGemini": "Impostazioni e guida → App collegate",
+      "ctaGemini": "Connetti a Gemini",
+      "gem1": "Apri <a class=\"link\" href=\"https://gemini.google.com/app\" target=\"_blank\" rel=\"noopener\" data-connect=\"Gemini\">Gemini</a>, poi <span class=\"chip\">Settings &amp; help</span> → <span class=\"chip\">Connected apps</span>. In Gemini Enterprise: <span class=\"chip\">Manage team</span> → <span class=\"chip\">Connected apps</span>.",
+      "gem2": "Scegli <span class=\"chip\">Add custom app</span> (Enterprise: <span class=\"chip\">Add MCP Server</span>), chiamala <b>Oasis</b>, incolla l'indirizzo del server e scegli <span class=\"chip\">No authentication</span>.",
+      "gem3": "In una chat, scrivi <span class=\"chip\">@Oasis</span> prima della domanda.",
+      "gem4": "Nell'app Gemini, Oasis risponde in testo; le schede interattive compaiono in Claude, ChatGPT e Gemini Enterprise. Le app personalizzate richiedono un account Google e un piano che le offrano.",
       "jsonClients": "Client configurati con JSON:",
       "tryIt": "Provalo",
       "tryLede": "Una volta connesso Oasis, inizia con una di queste.",
@@ -514,7 +552,7 @@
     },
     "de": {
       "share": "Teilen",
-      "subtitle": "Lokale Geschäfte finden, durchstöbern und dort bestellen, direkt in ChatGPT und Claude.",
+      "subtitle": "Lokale Geschäfte finden, durchstöbern und dort bestellen, direkt in ChatGPT, Claude und Gemini.",
       "server": "Server",
       "transport": "Transport",
       "auth": "Authentifizierung",
@@ -527,7 +565,7 @@
       "ctaChatgpt": "Mit ChatGPT verbinden",
       "subClaude": "Einstellungen → Connectors",
       "ctaClaude": "Mit Claude verbinden",
-      "notListed": "Oasis ist noch nicht in den App-Verzeichnissen von ChatGPT oder Claude, deshalb fügen Sie es als <b>benutzerdefinierten Connector</b> hinzu. Das dauert etwa eine Minute; die Schritte stehen unten.",
+      "notListed": "Oasis ist noch nicht in den App-Verzeichnissen von ChatGPT, Claude oder Gemini, deshalb fügen Sie es als <b>benutzerdefinierten Connector</b> hinzu. Das dauert etwa eine Minute; die Schritte stehen unten.",
       "howTo": "So verbinden Sie sich",
       "gpt1": "Öffnen Sie die <a class=\"link\" href=\"https://chatgpt.com/#settings/Connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"ChatGPT\">ChatGPT-Einstellungen</a> und gehen Sie zu <span class=\"chip\">Apps &amp; Connectors</span>.",
       "gpt2": "Aktivieren Sie unter <span class=\"chip\">Advanced settings</span> den <span class=\"chip\">Developer mode</span>.",
@@ -538,6 +576,12 @@
       "cl3": "Klicken Sie auf <span class=\"chip\">Add</span>. Das funktioniert in Claude im Web, auf dem Desktop und mobil.",
       "cl4": "Prüfen Sie in einem Chat, dass Oasis im Menü <span class=\"chip\">Search and tools</span> aktiviert ist.",
       "otherClients": "Claude Code und andere MCP-Clients",
+      "subGemini": "Einstellungen & Hilfe → Verbundene Apps",
+      "ctaGemini": "Mit Gemini verbinden",
+      "gem1": "Öffnen Sie <a class=\"link\" href=\"https://gemini.google.com/app\" target=\"_blank\" rel=\"noopener\" data-connect=\"Gemini\">Gemini</a>, dann <span class=\"chip\">Settings &amp; help</span> → <span class=\"chip\">Connected apps</span>. In Gemini Enterprise: <span class=\"chip\">Manage team</span> → <span class=\"chip\">Connected apps</span>.",
+      "gem2": "Wählen Sie <span class=\"chip\">Add custom app</span> (Enterprise: <span class=\"chip\">Add MCP Server</span>), nennen Sie sie <b>Oasis</b>, fügen Sie die Serveradresse ein und wählen Sie <span class=\"chip\">No authentication</span>.",
+      "gem3": "Tippen Sie im Chat <span class=\"chip\">@Oasis</span> vor Ihre Frage.",
+      "gem4": "In der Gemini-App antwortet Oasis als Text; die interaktiven Karten erscheinen in Claude, ChatGPT und Gemini Enterprise. Eigene Apps brauchen ein Google-Konto und ein Abo, das sie anbietet.",
       "jsonClients": "Clients mit JSON-Konfiguration:",
       "tryIt": "Ausprobieren",
       "tryLede": "Sobald Oasis verbunden ist, beginnen Sie mit einer dieser Fragen.",
@@ -557,7 +601,7 @@
     en: { copy: "Copy", copied: "Copied", copyFailed: "Copy failed", shareTitle: "Copy the link to this page", linkCopied: "Link to this page copied",
           linkFailed: "Couldn't copy the link", addrCopied: "Address copied. Paste it in {app}'s connector settings.",
           copyManual: "Copy the server address above and paste it in the connector settings.", light: "Light", dark: "Dark", system: "Same as your system",
-          themeTitle: "Theme: {label} (click to change)", language: "Language", docTitle: document.title,
+          themeTitle: "Theme: {label} (click to change)", language: "Language", docTitle: document.title, promptCopied: "Prompt copied. Paste it in Gemini.",
           prompts: ["What's the nearest coffee shop?", "Find me a vegan lunch near me", "Show me t-shirts I can order", "Book a haircut for Saturday morning"] },
     ...{
     "fr": {
@@ -574,7 +618,8 @@
       "system": "Comme votre système",
       "themeTitle": "Thème : {label} (cliquer pour changer)",
       "language": "Langue",
-      "docTitle": "Oasis MCP · Commerces locaux dans ChatGPT et Claude",
+      "docTitle": "Oasis MCP · Commerces locaux dans ChatGPT, Claude et Gemini",
+      "promptCopied": "Demande copiée. Collez-la dans Gemini.",
       "prompts": [
         "Quel est le café le plus proche ?",
         "Trouve-moi un déjeuner végan près de moi",
@@ -596,7 +641,8 @@
       "system": "Come il sistema",
       "themeTitle": "Tema: {label} (clic per cambiare)",
       "language": "Lingua",
-      "docTitle": "Oasis MCP · Attività locali in ChatGPT e Claude",
+      "docTitle": "Oasis MCP · Attività locali in ChatGPT, Claude e Gemini",
+      "promptCopied": "Richiesta copiata. Incollala in Gemini.",
       "prompts": [
         "Qual è il bar più vicino?",
         "Trovami un pranzo vegano vicino a me",
@@ -618,7 +664,8 @@
       "system": "Wie Ihr System",
       "themeTitle": "Design: {label} (klicken zum Ändern)",
       "language": "Sprache",
-      "docTitle": "Oasis MCP · Lokale Geschäfte in ChatGPT und Claude",
+      "docTitle": "Oasis MCP · Lokale Geschäfte in ChatGPT, Claude und Gemini",
+      "promptCopied": "Frage kopiert. In Gemini einfügen.",
       "prompts": [
         "Wo ist das nächste Café?",
         "Finde ein veganes Mittagessen in meiner Nähe",
@@ -652,6 +699,12 @@
 
   // The link opens by itself (target=_blank); the click also copies the address to paste there.
   // Delegated, because switching language redraws the step lists that hold some of these links.
+  // Gemini has no link that fills in a prompt: copy it, Gemini opens in a new tab, paste it there.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("[data-copy-prompt]");
+    if (!a) return;
+    copy(a.dataset.copyPrompt).then((ok) => ok && show(L("promptCopied")));
+  });
   document.addEventListener("click", (e) => {
     const a = e.target.closest && e.target.closest("[data-connect]");
     if (!a) return;
@@ -682,12 +735,16 @@
   const body = document.getElementById("prompts");
   function drawPrompts() {
   body.replaceChildren();
-  for (const p of L("prompts")) {
+  // The prompts are a list: read them directly (L() makes text of whatever it returns).
+  const list = (UI[lang] && UI[lang].prompts) || UI.en.prompts;
+  for (const p of list) {
     const q = encodeURIComponent(p);
     const tr = document.createElement("tr");
     tr.innerHTML = `<td class="prompt"></td><td>
       <a class="try" href="https://chatgpt.com/?q=${q}" target="_blank" rel="noopener"><img src="/mcp/chatgpt.png" alt="" onerror="this.remove()" />ChatGPT</a>
-      <a class="try" href="https://claude.ai/new?q=${q}" target="_blank" rel="noopener"><img src="/mcp/claude.png" alt="" onerror="this.remove()" />Claude</a></td>`;
+      <a class="try" href="https://claude.ai/new?q=${q}" target="_blank" rel="noopener"><img src="/mcp/claude.png" alt="" onerror="this.remove()" />Claude</a>
+      <a class="try" href="https://gemini.google.com/app" target="_blank" rel="noopener" data-copy-prompt><svg class="gem" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gemini" /></svg>Gemini</a></td>`;
+    tr.querySelector("[data-copy-prompt]").dataset.copyPrompt = p;
     tr.querySelector(".prompt").textContent = p;
     body.append(tr);
   }

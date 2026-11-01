@@ -25,7 +25,7 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from mcp import ClientSession
+from mcp import ClientSession, types
 from mcp.client.streamable_http import streamable_http_client
 
 from .. import vault
@@ -37,6 +37,8 @@ from .strings import t
 from .trace import NO_TRACE, Trace
 
 log = logging.getLogger("agentready.chat")
+# How the /chat page introduces itself to the gateway (it draws its own cards: see mcp_server.shows_cards).
+CLIENT_INFO = types.Implementation(name="oasis-chat", version="1.0.0")
 
 MAX_STEPS = 6
 RESULT_LIMIT = 6000      # characters of one tool result the model sees (lists shrink to fit, JSON stays valid)
@@ -628,7 +630,7 @@ async def _answer(session: Any, emit: Emit, messages: list[dict[str, str]], loca
 async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known: list[dict[str, str]], confirmed: dict[str, Any] | None,
                language: str = "", items_shown: list[dict[str, str]] | None = None, trace: Trace = NO_TRACE) -> None:
     async with streamable_http_client(CLIENT_MCP_URL) as (read, write, *_):
-        async with ClientSession(read, write) as session:
+        async with ClientSession(read, write, client_info=CLIENT_INFO) as session:
             await session.initialize()
             await _answer(session, emit, messages, location, known, confirmed, language, items_shown, trace)
 
@@ -636,7 +638,7 @@ async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known:
 async def call(tool: str, args: dict[str, Any]) -> dict[str, Any]:
     """One MCP call without the AI, for the visitor's own clicks (Send order, order status)."""
     async with streamable_http_client(CLIENT_MCP_URL) as (read, write, *_):
-        async with ClientSession(read, write) as session:
+        async with ClientSession(read, write, client_info=CLIENT_INFO) as session:
             await session.initialize()
             return await _call(session, tool, args)
 
