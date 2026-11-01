@@ -79,7 +79,9 @@ if FRONTEND_DIST.is_dir():
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str) -> FileResponse:
-        if path.startswith("api/"):
+        # .well-known: MCP clients (Claude, ChatGPT) look there for OAuth settings. Oasis needs no
+        # sign-in, so the honest answer is 404, never the web app's HTML page.
+        if path.startswith(("api/", ".well-known/")):
             raise HTTPException(404, "Not found")
         file = (FRONTEND_DIST / path).resolve()
         if path and file.is_file() and file.is_relative_to(FRONTEND_DIST.resolve()):

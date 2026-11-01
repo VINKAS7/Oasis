@@ -94,3 +94,17 @@ def test_online_business_has_no_open_status():
 def test_business_info_has_open_status():
     info = service.business_info("biz_trattoria_basilico_01")
     assert info["today"] in ("mon", "tue", "wed", "thu", "fri", "sat", "sun") and info["open_now"] in (True, False)
+
+
+def test_oauth_discovery_is_404_not_the_web_app():
+    # MCP clients read these to decide whether to ask for sign-in; Oasis needs none.
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    if not main.FRONTEND_DIST.is_dir():
+        return  # no built UI: nothing catches these paths anyway
+    client = TestClient(main.app)
+    for path in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource/mcp"):
+        r = client.get(path)
+        assert r.status_code == 404 and "<html" not in r.text.lower(), path
