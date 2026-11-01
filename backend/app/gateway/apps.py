@@ -31,13 +31,13 @@ MAX_IMAGE_DOMAINS = 40
 # Assistants cache a view by its URI: change the version when its file changes. They also keep
 # tool lists that name an older version, so earlier URIs keep serving the current view.
 VIEWS: dict[str, dict[str, Any]] = {
-    "items": {"uri": "ui://oasis/items-v8.html", "older": [f"ui://oasis/items-v{n}.html" for n in range(1, 8)], "file": "items.html",
+    "items": {"uri": "ui://oasis/items-v9.html", "older": [f"ui://oasis/items-v{n}.html" for n in range(1, 9)], "file": "items.html",
               "title": "Oasis cards", "frames": MAP_FRAMES, "geolocation": True, "images": True,
               "description": "Cards for businesses (nearest first, with a map) and for a business's menu, products, services or other "
                              "lists, with search, filters, photos and ordering."},
-    "ask": {"uri": "ui://oasis/ask-v1.html", "older": [], "file": "ask.html", "title": "Oasis question", "frames": [], "geolocation": False,
+    "ask": {"uri": "ui://oasis/ask-v2.html", "older": ["ui://oasis/ask-v1.html"], "file": "ask.html", "title": "Oasis question", "frames": [], "geolocation": False,
             "images": False, "description": "A question the user answers with a tap: yes/no, choices, a range, a rating, a number, a date or a time."},
-    "business": {"uri": "ui://oasis/business-v1.html", "older": [], "file": "business.html", "title": "Oasis business", "frames": MAP_FRAMES,
+    "business": {"uri": "ui://oasis/business-v2.html", "older": ["ui://oasis/business-v1.html"], "file": "business.html", "title": "Oasis business", "frames": MAP_FRAMES,
                  "geolocation": False, "images": False,
                  "description": "One business: open now or not, opening hours, map, and buttons to call, visit the website or get directions."},
 }

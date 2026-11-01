@@ -520,7 +520,11 @@
   let lastHeight = 0;
   new ResizeObserver(() => {
     const height = Math.ceil(document.documentElement.getBoundingClientRect().height);
-    if (height !== lastHeight) { lastHeight = height; notify("ui/notifications/size-changed", { height }); }
+    if (height !== lastHeight) {
+      lastHeight = height;
+      notify("ui/notifications/size-changed", { height });
+      try { if (window.openai && window.openai.notifyIntrinsicHeight) window.openai.notifyIntrinsicHeight(height); } catch { /* not ChatGPT */ }
+    }
   }).observe(document.body);
 
   async function callTool(name, args) {

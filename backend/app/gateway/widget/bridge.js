@@ -58,11 +58,16 @@ const Oasis = (() => {
   };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  // Tell the assistant how tall the view is, so the frame fits it.
+  // Tell the assistant how tall the view is, so the frame fits it: the MCP Apps message, and
+  // ChatGPT's own call (its frames may not size from the message alone).
   let lastHeight = 0;
   new ResizeObserver(() => {
     const height = Math.ceil(document.documentElement.getBoundingClientRect().height);
-    if (height !== lastHeight) { lastHeight = height; notify("ui/notifications/size-changed", { height }); }
+    if (height !== lastHeight) {
+      lastHeight = height;
+      notify("ui/notifications/size-changed", { height });
+      try { if (window.openai && window.openai.notifyIntrinsicHeight) window.openai.notifyIntrinsicHeight(height); } catch { /* not ChatGPT */ }
+    }
   }).observe(document.body);
 
   const oa = () => (!connected && window.openai) || null;  // ChatGPT's older bridge, when MCP Apps didn't answer
