@@ -87,15 +87,21 @@ def _last_call_id() -> int:
 def _turn(client: httpx.Client, api: str, messages: list[dict[str, str]], lang: str, known: list[dict[str, str]],
           context: dict[str, Any]) -> tuple[list[dict[str, Any]], float]:
     body = {"messages": messages, "location": BASEL, "language": lang, "businesses": known, **context}
-    events: list[dict[str, Any]] = []
-    started = time.monotonic()
-    with client.stream("POST", f"{api}/api/chat", json=body, timeout=240) as r:
-        if r.status_code != 200:
-            return [{"type": "error", "message": f"HTTP {r.status_code}: {r.read().decode()[:200]}"}], time.monotonic() - started
-        for line in r.iter_lines():
-            if line.strip():
-                events.append(json.loads(line))
-    return events, time.monotonic() - started
+    for _ in range(4):  # the public chat is rate-limited per visitor: wait out a 429 instead of scoring it
+        events: list[dict[str, Any]] = []
+        started = time.monotonic()
+        with client.stream("POST", f"{api}/api/chat", json=body, timeout=240) as r:
+            if r.status_code == 429:
+                r.read()
+                time.sleep(30)
+                continue
+            if r.status_code != 200:
+                return [{"type": "error", "message": f"HTTP {r.status_code}: {r.read().decode()[:200]}"}], time.monotonic() - started
+            for line in r.iter_lines():
+                if line.strip():
+                    events.append(json.loads(line))
+        return events, time.monotonic() - started
+    return [{"type": "error", "message": "HTTP 429 (rate limit) after several waits"}], 0.0
 
 
 def run_case(client: httpx.Client, api: str, case: dict[str, Any]) -> dict[str, Any]:

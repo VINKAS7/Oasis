@@ -300,8 +300,18 @@ async def find(query: str, type_: str | None, here: tuple[float, float], radius_
     hits.sort(key=lambda h: (h["match"] == "similar", h["distance_km"]))
     close = [h for h in hits if h["distance_km"] <= radius_km]
     online = await _online(query, type_, words)
-    return {"businesses": (close or hits)[:20], "online": online, "radius_km": radius_km, "widened": not close and bool(hits),
-            "search_mode": mode}
+    out = {"businesses": (close or hits)[:20], "online": online, "radius_km": radius_km, "widened": not close and bool(hits),
+           "search_mode": mode}
+    if (query or "").strip() and not any(h["match"] in ("exact", "name") for h in hits):
+        # Nothing nearby offers exactly that: say where the nearest places that do are, however far.
+        far = [b for b in _live(" AND online_only = 0 AND lat IS NOT NULL AND lng IS NOT NULL")
+               if distance_km(here, (b["lat"], b["lng"])) > WIDEST_KM]
+        exact = [h for h in (await _rank(query, type_, words, far))[0] if h["match"] in ("exact", "name")]
+        for h in exact:
+            h["distance_km"] = round(distance_km(here, (h["lat"], h["lng"])), 1)
+        if exact:
+            out["farther"] = sorted(exact, key=lambda h: h["distance_km"])[:3]
+    return out
 
 
 async def find_anywhere(query: str, type_: str | None, keywords: list[str], open_at: str | None, day: str | None) -> dict[str, Any]:

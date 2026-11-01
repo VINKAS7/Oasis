@@ -145,6 +145,11 @@ async def find_nearby(
                    f"{found['radius_km']:g} km, so the search was widened)" if found["widened"] else "") + ". The cards show them with a map.")
     else:
         message = f"Nothing matching within {directory.WIDEST_KM:g} km of {you['label']}."
+    if found.get("farther"):
+        far = found["farther"]
+        message += (" None of these nearby offers exactly that. Farther away, these do: "
+                    + ", ".join(f"{b['name']} ({b['distance_km']:g} km)" for b in far) + ". Mention them too.")
+        found["farther"] = _with_tools(far)
     if found["online"]:
         message += f" Online: {', '.join(b['name'] for b in found['online'][:3])}."
     found["businesses"], found["online"] = _with_tools(near), _with_tools(found["online"])

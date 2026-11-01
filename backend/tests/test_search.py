@@ -123,3 +123,22 @@ def test_partial_index_keeps_keyword_hits(fake_similar):
 def test_search_reports_mode():
     r = asyncio.run(directory.find("pizza", None, BASEL, 5, [], None, None))
     assert r.get("search_mode") == "keywords"
+
+
+def test_find_nearby_names_farther_exact_matches():
+    # Nothing in Basel sells gelato; the Ticino gelateria (200+ km) is still worth naming.
+    r = asyncio.run(directory.find("gelato", None, BASEL, 5, [], None, None))
+    assert "biz_gelateria_ticino_01" in ids(r.get("farther", []))
+    assert r["farther"][0]["distance_km"] > directory.WIDEST_KM
+
+
+def test_no_farther_when_nearby_matches():
+    r = asyncio.run(directory.find("pizza", None, BASEL, 5, [], None, None))
+    assert "farther" not in r
+
+
+@pytest.mark.parametrize("query", ["bonnet", "Mütze", "berretto"])
+def test_beanie_words(query):
+    from app.gateway import matching
+
+    assert matching.terms(query) == ["beanie"]

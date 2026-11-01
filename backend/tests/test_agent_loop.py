@@ -243,3 +243,14 @@ def test_trace_feeds_chat_quality(monkeypatch):
     q = chat_trace.quality(1)
     assert q["turns"] >= 1 and q["outcomes"].get("reply", 0) >= 1
     assert any(p["kind"] == "repair" for p in q["problems"])
+
+
+def test_asking_to_confirm_in_words_is_nudged_to_order(monkeypatch):
+    script = [move("call_tool", "call_business_tool", {"business_id": "biz_t_01", "tool": "get_menu", "inputs": {}}),
+              move(reply="I found Pizza Margherita at CHF 18. Shall I order it for you?"),
+              move("call_tool", "call_business_tool", {"business_id": "biz_t_01", "tool": "request_order",
+                                                       "inputs": {"items": [{"id": "pizza-margherita-abc", "quantity": 1}]}})]
+    events, _, model = run(script, messages=[{"role": "user", "content": "Order one margherita, I'm Anna, 079 123 45 67"}],
+                           monkeypatch=monkeypatch)
+    assert any(e["type"] == "confirm" for e in events)
+    assert any("Don't ask the visitor to confirm in words" in p["text"] for m in model.seen[2] for p in m["content"])
