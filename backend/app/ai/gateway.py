@@ -131,6 +131,8 @@ async def run(
     route: Route | None = None,
     temperature: float | None = None,
     timeout: float | None = None,
+    turn_id: str | None = None,
+    step: int | None = None,
 ) -> AIResult:
     """One model call through the admin's route for `task`, logged to ai_calls. temperature and
     timeout override the route's for this call (the customer chat wants steady, quick steps)."""
@@ -165,7 +167,7 @@ async def run(
         with db.session() as conn:
             conn.execute(
                 "INSERT INTO ai_calls (task, user_id, business_id, provider_id, provider_kind, model, ok, error,"
-                " input_tokens, output_tokens, latency_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " input_tokens, output_tokens, latency_ms, created_at, turn_id, step) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     task,
                     user_id,
@@ -179,6 +181,8 @@ async def run(
                     result.output_tokens if result else None,
                     int((time.monotonic() - started) * 1000),
                     db.now(),
+                    turn_id,
+                    step,
                 ),
             )
 

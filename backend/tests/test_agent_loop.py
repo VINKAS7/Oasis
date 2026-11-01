@@ -223,3 +223,23 @@ def test_for_model_catalog_lines_have_options_and_stock():
          "available": {"S/Black": 0, "M/Black": 2}}]}}
     text = agent._for_model(data)
     assert "prd_tee | Tee | CHF 29 | size: S/M; colour: Black | sold out: S/Black" in text
+
+
+def test_trace_feeds_chat_quality(monkeypatch):
+    from app.chat import trace as chat_trace
+
+    model = Model([IncompleteAnswer("bad"), move("call_tool", "search_businesses", {"query": "pizza"}), move(reply="Trattoria")])
+    monkeypatch.setattr(agent.gateway, "run", model.run)
+    tr = chat_trace.Trace("en")
+
+    async def emit(e):
+        pass
+
+    asyncio.run(agent._answer(Session(default_handler), emit, [{"role": "user", "content": "pizza"}], "", [], None, "en", None, tr))
+    one = chat_trace.turn(tr.turn_id)
+    kinds = [e["kind"] for e in one["events"]]
+    assert kinds[0] == "turn_start" and kinds[-1] == "turn_end"
+    assert {"repair", "tool"} <= set(kinds)
+    q = chat_trace.quality(1)
+    assert q["turns"] >= 1 and q["outcomes"].get("reply", 0) >= 1
+    assert any(p["kind"] == "repair" for p in q["problems"])

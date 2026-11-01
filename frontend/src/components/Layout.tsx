@@ -20,6 +20,7 @@ import {
   Server,
   Users,
   X,
+  MessageSquareText,
 } from "lucide-react";
 import { isAdmin, signOut, useSession } from "../lib/auth-client";
 import { api } from "../lib/api";
@@ -61,6 +62,7 @@ const ADMIN_NAV = [
   { to: "/admin/workspaces", label: "All workspaces", icon: Building2 },
   { to: "/admin/mcp-servers", label: "MCP servers", icon: Server },
   { to: "/admin/usage", label: "AI usage", icon: Activity },
+  { to: "/admin/chat-quality", label: "Chat quality", icon: MessageSquareText },
 ];
 
 const item = ({ isActive }: { isActive: boolean }) =>

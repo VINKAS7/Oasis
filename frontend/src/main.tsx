@@ -21,6 +21,7 @@ import { AdminCrawlerSettings } from "./pages/admin/CrawlerSettings";
 import { AdminUsers } from "./pages/admin/Users";
 import { AdminUsage, AdminWorkspaces } from "./pages/admin/Lists";
 import { AdminMcpServers } from "./pages/admin/McpServers";
+import { AdminChatQuality } from "./pages/admin/ChatQuality";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -49,6 +50,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="workspaces" element={<AdminWorkspaces />} />
             <Route path="mcp-servers" element={<AdminMcpServers />} />
             <Route path="usage" element={<AdminUsage />} />
+            <Route path="chat-quality" element={<AdminChatQuality />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

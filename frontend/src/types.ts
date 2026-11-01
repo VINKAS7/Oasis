@@ -737,3 +737,25 @@ export interface ChatThread {
   turns: ChatTurn[];
   updated_at: string;
 }
+
+/** GET /api/admin/chat-quality: how the public customer chat is doing. */
+export interface ChatQuality {
+  days: number;
+  turns: number;
+  success_rate: number | null;
+  outcomes: Record<string, number>;
+  llm_calls_per_turn: number | null;
+  llm_calls_failed: number;
+  steps_per_turn: number | null;
+  latency_ms: { p50: number | null; p95: number | null };
+  problems: { kind: string; count: number }[];
+  tools: { tool: string; calls: number; failed: number }[];
+  recent: { turn_id: string; created_at: string; ms: number | null; outcome: string; language: string; steps: number; tools: string[] }[];
+}
+
+/** GET /api/admin/chat-quality/{turn_id}: one answer's steps and AI calls. */
+export interface ChatTurnTrace {
+  turn_id: string;
+  events: { kind: string; detail: Record<string, unknown>; ms: number | null; created_at: string }[];
+  llm_calls: { step: number | null; model: string; ok: number; error: string | null; input_tokens: number | null; output_tokens: number | null; latency_ms: number | null; created_at: string }[];
+}

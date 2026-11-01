@@ -284,6 +284,21 @@ def ai_calls(limit: int = 100, task: str | None = None) -> list[dict[str, Any]]:
     return rs
 
 
+@router.get("/chat-quality")
+def chat_quality(days: int = 7) -> dict[str, Any]:
+    """How the customer chat is doing: answers, success rate, LLM calls and latency per answer, top problems."""
+    from ..chat import trace
+
+    return trace.quality(days)
+
+
+@router.get("/chat-quality/{turn_id}")
+def chat_turn(turn_id: str) -> dict[str, Any]:
+    from ..chat import trace
+
+    return trace.turn(turn_id)
+
+
 @router.get("/workspaces")
 def all_workspaces() -> list[dict[str, Any]]:
     with db.session() as conn:

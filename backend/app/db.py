@@ -307,6 +307,18 @@ CREATE TABLE IF NOT EXISTS ai_calls (
     created_at     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ai_calls_created ON ai_calls(created_at);
+
+-- What the customer chat did in each answer (chat/trace.py): tools, nudges, repairs, outcome. No message text.
+CREATE TABLE IF NOT EXISTS chat_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    turn_id     TEXT NOT NULL,
+    kind        TEXT NOT NULL,                         -- turn_start | tool | nudge | forced | repair | ... | turn_end
+    detail      TEXT NOT NULL DEFAULT '{}',
+    ms          INTEGER,                               -- since the answer started
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS chat_events_turn ON chat_events(turn_id, id);
+CREATE INDEX IF NOT EXISTS chat_events_kind ON chat_events(kind, created_at);
 """
 
 
@@ -354,6 +366,8 @@ COLUMNS = [
     ("businesses", "crawl_enabled", "INTEGER NOT NULL DEFAULT 1"),  # Oasis reads (crawls) the website; off: tools come from recordings only
     ("recordings", "scan", "TEXT"),  # the security scan of an imported recording file (JSON)
     ("businesses", "shop_template", "TEXT NOT NULL DEFAULT ''"),  # an Oasis Shop: clothing | menu | services | general; '' = not a shop
+    ("ai_calls", "turn_id", "TEXT"),   # the customer-chat answer this call belongs to (chat_events)
+    ("ai_calls", "step", "INTEGER"),
 ]
 
 
@@ -363,6 +377,7 @@ def init_db() -> None:
         for table, column, decl in COLUMNS:
             if column not in {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        conn.execute("CREATE INDEX IF NOT EXISTS ai_calls_turn ON ai_calls(turn_id)")
         conn.execute("UPDATE tool_checks SET status = 'error', error = 'Interrupted by a server restart' WHERE status = 'running'")
         # A crawl thread does not survive a restart; close out runs it left behind.
         conn.execute(
