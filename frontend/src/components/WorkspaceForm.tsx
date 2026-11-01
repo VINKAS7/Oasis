@@ -25,6 +25,8 @@ export const EMPTY_WORKSPACE: WorkspaceInput = {
   website_url: "",
   test_url: "",
   description: "",
+  crawl_enabled: true,
+  shop_template: "",
 };
 
 const hasHours = (hours: WorkspaceInput["hours"]) => Object.values(hours).some((d) => d && (d.closed || d.open));
@@ -243,10 +245,24 @@ export function WorkspaceForm({
         {showHours && <HoursEditor hours={hasHours(value.hours) ? value.hours : DEFAULT_HOURS} onChange={(hours) => patch({ hours })} />}
       </Section>
 
-      <Section title="Website" description="After you save, Oasis reads your website page by page.">
+      {!value.shop_template && (
+      <Section
+        title="Website"
+        description={value.crawl_enabled ? "After you save, Oasis reads your website page by page." : "Oasis won't read your website. Tools come from recordings you import."}
+      >
         <Field label="Website address" hint="We visit up to 30 pages on this site. Nothing on your site is changed.">
           <Input value={value.website_url} onChange={(e) => patch({ website_url: e.target.value })} placeholder="https://your-business.ch" inputMode="url" />
         </Field>
+        <Toggle
+          checked={value.crawl_enabled}
+          onChange={(v) => patch({ crawl_enabled: v })}
+          label="Read my website automatically"
+          hint={
+            value.crawl_enabled
+              ? "Oasis visits your pages and suggests tools from what it finds (menu, prices, opening hours...)."
+              : "Off: Oasis never visits your pages on its own. Record flows with the Oasis Recorder extension and import them under Your tools."
+          }
+        />
         <Field
           label="Test copy of your system (optional)"
           hint="If you have a staging or test version of your site, tools that book, order or send are tested against it, so a test never reaches a real customer."
@@ -254,6 +270,7 @@ export function WorkspaceForm({
           <Input value={value.test_url} onChange={(e) => patch({ test_url: e.target.value })} placeholder="https://test.your-business.ch" inputMode="url" />
         </Field>
       </Section>
+      )}
 
       <ErrorNote>{error}</ErrorNote>
       <div className="flex justify-end gap-2">

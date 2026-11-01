@@ -6,11 +6,12 @@ import re
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 
-from .clean import MASK, is_tracker, snake
+from .clean import MASK, is_noise, is_tracker, snake
 
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$|^\d{1,2}[./]\d{1,2}[./]\d{2,4}$")
 _TIME = re.compile(r"^\d{1,2}:\d{2}$")
 _INT = re.compile(r"^-?\d+$")
+_GRAPHQL_NAME = re.compile(r"^\s*(?:query|mutation)\s+(\w+)")
 VALUE_ACTIONS = ("fill", "select", "check", "uncheck")
 
 
@@ -42,7 +43,20 @@ def _flatten(value: Any, prefix: str = "") -> dict[str, Any]:
 
 
 def _request_key(r: dict[str, Any]) -> str:
-    return f"{r.get('method', 'GET')} {urlsplit(str(r.get('url', ''))).path}"
+    """Which request this is. Sites with one address for everything (GraphQL, RPC) are told apart
+    by the operation (GraphQL operation name) or else by the shape of the body."""
+    key = f"{r.get('method', 'GET')} {urlsplit(str(r.get('url', ''))).path}"
+    body = r.get("body")
+    if isinstance(body, dict):
+        m = _GRAPHQL_NAME.match(str(body.get("query") or ""))
+        op = body.get("operationName") or (m.group(1) if m else "")
+        key += f" {op}" if op else " {" + ",".join(sorted(body)) + "}"
+    return key
+
+
+def _kept(requests: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Without tracking, ads and static files: they say nothing about the flow."""
+    return [r for r in requests if not is_noise(str(r.get("url", "")), (r.get("response") or {}).get("content_type", ""), r.get("body"))]
 
 
 def _request_fields(r: dict[str, Any]) -> dict[str, Any]:
@@ -103,17 +117,22 @@ def compare(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
             else:
                 fixed.append({"where": where, "value": va})
 
-        b_requests = {}
-        for r in sb["requests"]:
-            b_requests.setdefault(_request_key(r), r)
-        for r in sa["requests"]:
+        # The same request made several times in a step (a feature switch per page part) is paired
+        # with its most similar counterpart: the one sharing the most field values.
+        b_requests: dict[str, list[dict[str, Any]]] = {}
+        for r in _kept(sb["requests"]):
+            b_requests.setdefault(_request_key(r), []).append(r)
+        for r in _kept(sa["requests"]):
             if r.get("method", "GET") == "GET" and not r.get("body") and "?" not in str(r.get("url", "")):
                 continue
             key = _request_key(r)
-            other = b_requests.get(key)
-            if other is None:
+            others = b_requests.get(key)
+            if not others:
                 continue
-            fa, fb = _request_fields(r), _request_fields(other)
+            fa = _request_fields(r)
+            other = max(others, key=lambda o: sum(1 for k, v in _request_fields(o).items() if fa.get(k) == v))
+            others.remove(other)
+            fb = _request_fields(other)
             for field in sorted(set(fa) | set(fb)):
                 va, vb = fa.get(field), fb.get(field)
                 where = f"step {n}: {key} {field}"

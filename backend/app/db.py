@@ -163,6 +163,19 @@ CREATE TABLE IF NOT EXISTS item_snapshots (
     fetched_at  TEXT NOT NULL
 );
 
+-- Meaning vectors for search (gateway/search_index.py): one per live business and per item.
+CREATE TABLE IF NOT EXISTS search_vectors (
+    kind        TEXT NOT NULL,                         -- business | item
+    ref         TEXT NOT NULL,                         -- business id, or "<business id>:<item id>"
+    business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    model       TEXT NOT NULL,
+    text_hash   TEXT NOT NULL,                         -- of the embedded text: unchanged text isn't embedded again
+    vector      BLOB NOT NULL,                         -- float32, unit length
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (kind, ref)
+);
+CREATE INDEX IF NOT EXISTS search_vectors_business ON search_vectors(business_id);
+
 -- Orders customers send through Oasis (request_order); the owner accepts or declines them.
 CREATE TABLE IF NOT EXISTS orders (
     id               TEXT PRIMARY KEY,                 -- ord_...
@@ -181,6 +194,26 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at       TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS orders_business ON orders(business_id, status, created_at);
+
+-- Oasis Shops: products an owner sells directly through Oasis (no website). See app/shop/.
+CREATE TABLE IF NOT EXISTS products (
+    id            TEXT PRIMARY KEY,                    -- prd_...
+    business_id   TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    name          TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    category      TEXT NOT NULL DEFAULT '',            -- clothing category, menu section, service group
+    price_amount  REAL,                                -- NULL: price on request
+    currency      TEXT NOT NULL DEFAULT 'CHF',
+    images        TEXT NOT NULL DEFAULT '[]',          -- JSON [file name], first is the main photo
+    attributes    TEXT NOT NULL DEFAULT '{}',          -- JSON, fields of the shop's template (material, dietary tags, duration...)
+    options       TEXT NOT NULL DEFAULT '{}',          -- JSON variant axes {"size": ["S","M"], "colour": ["Black"]}
+    stock         TEXT NOT NULL DEFAULT '{}',          -- JSON per variant key ("M/Black") or "" for no variants; empty: not tracked
+    active        INTEGER NOT NULL DEFAULT 1,
+    sort          INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS products_business ON products(business_id, active, sort);
 
 CREATE TABLE IF NOT EXISTS alerts (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -318,6 +351,9 @@ COLUMNS = [
     ("businesses", "online_only", "INTEGER NOT NULL DEFAULT 0"),   # no physical place: no address, map or hours needed
     ("crawl_pages", "catalogs", "TEXT NOT NULL DEFAULT '[]'"),     # repeated item blocks: menus, product grids (catalog.py)
     ("businesses", "accepts_orders", "INTEGER NOT NULL DEFAULT 0"),  # the owner takes orders through Oasis's order inbox
+    ("businesses", "crawl_enabled", "INTEGER NOT NULL DEFAULT 1"),  # Oasis reads (crawls) the website; off: tools come from recordings only
+    ("recordings", "scan", "TEXT"),  # the security scan of an imported recording file (JSON)
+    ("businesses", "shop_template", "TEXT NOT NULL DEFAULT ''"),  # an Oasis Shop: clothing | menu | services | general; '' = not a shop
 ]
 
 

@@ -91,6 +91,8 @@ def list_tools(business_id: str) -> list[dict[str, Any]]:
             "requires_user_confirmation": sensitive,
             "owner_rules": tool_rules,
             "note": "Ask the user first, then call with user_confirmed=true." if sensitive else "Read-only; call freely.",
+            # A list of items (menu, products, projects...): assistants that render MCP Apps show it as cards.
+            "shows_as_cards": json.loads(t["runner"]).get("kind") in ("item_list", "shop_catalog"),
         })
     if takes_orders:
         out += orders.tool_entries()
@@ -211,10 +213,13 @@ async def call_tool(business_id: str, name: str, inputs: dict[str, Any], user_co
     _log(business_id, tool, name, "ok", masked, result=mask_data(result.output, personal_values), message=result.message, started=started)
     signed = signing.sign(business_id, {"business_id": business_id, "business_name": business["name"], "tool": name, "version": tool["version"], "result": result.output})
     out = {"ok": True, "business": business["name"], "tool": name, "result": result.output, "signed": signed}
-    if run_tool.runner.get("kind") == "item_list":
-        orders.save_snapshot(business_id, tool["tool_id"], result.output)
+    if run_tool.runner.get("kind") in ("item_list", "shop_catalog"):
+        if run_tool.runner.get("kind") == "item_list":
+            orders.save_snapshot(business_id, tool["tool_id"], result.output)
         with db.session() as conn:
             out["can_order"] = orders.available(conn, business)
-        out["note"] = ("Each item has an id; order with call_business_tool(request_order)." if out["can_order"]
+        has_options = any(i.get("options") for i in (result.output or {}).get("items", []) if isinstance(i, dict))
+        out["note"] = (("Each item has an id; order with call_business_tool(request_order)"
+                        + (", giving each item's chosen options (e.g. size and colour) in options" if has_options else "") + ".") if out["can_order"]
                        else "This business doesn't take orders through Oasis.")
     return out

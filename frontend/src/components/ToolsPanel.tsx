@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Clock, Loader2, Sparkles, Wrench } from "lucide-react";
+import { ArrowRight, Clock, FileUp, Loader2, Sparkles, Trash2, Wrench } from "lucide-react";
 import { api } from "../lib/api";
 import type { Proposal, Tool } from "../types";
 import { CheckBadge, SensitivityBadge, signature } from "./toolLabels";
-import { Badge, Card, CardHeader, EmptyState, Toggle } from "./ui";
+import { ImportRecording } from "./ImportRecording";
+import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, Toggle } from "./ui";
 
 export function ProposalBanners({ businessId, proposals }: { businessId: string; proposals: Proposal[] }) {
   const open = proposals.filter((p) => p.status === "generating" || p.status === "pending");
@@ -31,17 +33,56 @@ export function ProposalBanners({ businessId, proposals }: { businessId: string;
 }
 
 export function ToolsPanel({ businessId, tools, onChange }: { businessId: string; tools: Tool[]; onChange: () => void }) {
+  const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState("");
+  const [error, setError] = useState("");
   const toggle = async (t: Tool, enabled: boolean) => {
     await api(`/api/workspaces/${businessId}/tools/${t.id}`, { method: "PATCH", json: { enabled } });
     onChange();
   };
+  const remove = async (t: Tool) => {
+    const title = t.current?.title ?? t.name;
+    if (!confirm(`Delete “${title}”? AI assistants, the customer chat and your MCP server will no longer offer it. Its version history is kept.`)) return;
+    setError("");
+    setDeleting(t.id);
+    try {
+      await api(`/api/workspaces/${businessId}/tools/${t.id}`, { method: "DELETE" });
+      onChange();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting("");
+    }
+  };
 
   return (
     <Card>
-      <CardHeader title="Your tools" description="What AI assistants will be able to do at your business. Every change is a new version you can roll back." />
+      <CardHeader
+        title="Your tools"
+        description="What AI assistants will be able to do at your business. Every change is a new version you can roll back."
+        action={
+          <Button variant="secondary" onClick={() => setImporting(true)}>
+            <FileUp className="size-4" /> Import recording
+          </Button>
+        }
+      />
+      {importing && (
+        <ImportRecording
+          businessId={businessId}
+          onClose={() => {
+            setImporting(false);
+            onChange();
+          }}
+        />
+      )}
+      {error && (
+        <div className="px-5 pt-3">
+          <ErrorNote>{error}</ErrorNote>
+        </div>
+      )}
       {tools.length === 0 ? (
         <EmptyState icon={<Wrench className="size-6" />} title="No tools yet">
-          Add the tools found on your website, or turn a recorded flow into a tool.
+          Add the tools found on your website, or import a recording made with the Oasis Recorder extension.
         </EmptyState>
       ) : (
         <ul className="divide-y divide-stone-100">
@@ -62,7 +103,12 @@ export function ToolsPanel({ businessId, tools, onChange }: { businessId: string
                 <code className="text-xs text-stone-500">{signature(t.name, t.current?.inputs ?? [])}</code>
                 {t.current && <p className="mt-0.5 text-sm text-stone-600">{t.current.description_for_owner}</p>}
               </Link>
-              <Toggle checked={t.enabled} onChange={(v) => toggle(t, v)} label={t.enabled ? "On" : "Off"} />
+              <div className="flex items-center gap-3">
+                <Toggle checked={t.enabled} onChange={(v) => toggle(t, v)} label={t.enabled ? "On" : "Off"} />
+                <Button variant="ghost" onClick={() => remove(t)} loading={deleting === t.id} title={`Delete ${t.current?.title ?? t.name}`} aria-label="Delete tool">
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

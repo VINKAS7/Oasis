@@ -130,30 +130,41 @@ export function RealTestDialog({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-lg space-y-4 rounded-xl bg-white p-5 shadow-xl">
-        <h2 className="font-semibold">Run a real test of “{version.title}”</h2>
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          This really happens on your site: the booking, order or message is sent to your system. Undo it there afterwards. To test without that, add a test copy of your system under Edit details, or a cancel tool.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {version.inputs.map((i) => (
-            <Field key={i.name} label={i.name} hint={i.personal ? "personal: use test details" : i.type}>
-              <Input value={values[i.name] ?? ""} onChange={(e) => setValues({ ...values, [i.name]: e.target.value })} />
-            </Field>
-          ))}
+      <div className="absolute inset-0 bg-black/40" onClick={busy ? undefined : onClose} />
+      {/* Header and buttons stay put; the inputs scroll when a tool asks for many. */}
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col rounded-xl bg-white shadow-xl">
+        <div className="space-y-3 px-5 pt-5">
+          <h2 className="font-semibold">Run a real test of “{version.title}”</h2>
+          <p className="rounded-lg bg-soft-yellow px-3 py-2 text-sm text-soft-yellow-ink">
+            This really happens on your site: the booking, order or message is sent to your system. Undo it there afterwards. To test without that, add a test copy of your system under Edit details, or a cancel tool.
+          </p>
         </div>
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 accent-brand-700" />I understand this really happens on my site, and I will undo it.
-        </label>
-        <ErrorNote>{error}</ErrorNote>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={start} disabled={!confirmed} loading={busy}>
-            Run the real test
-          </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+          {version.inputs.length === 0 ? (
+            <p className="text-sm text-stone-500">This tool asks for nothing.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {version.inputs.map((i) => (
+                <Field key={i.name} label={i.name} hint={i.personal ? "personal: use test details" : i.type}>
+                  <Input value={values[i.name] ?? ""} onChange={(e) => setValues({ ...values, [i.name]: e.target.value })} />
+                </Field>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="space-y-3 border-t border-line px-5 py-4">
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 accent-brand-700" />I understand this really happens on my site, and I will undo it.
+          </label>
+          <ErrorNote>{error}</ErrorNote>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={start} disabled={!confirmed} loading={busy}>
+              Run the real test
+            </Button>
+          </div>
         </div>
       </div>
     </div>

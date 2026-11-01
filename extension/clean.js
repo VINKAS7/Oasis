@@ -18,7 +18,16 @@ export const TRACKERS = [
   "facebook.net", "facebook.com/tr", "connect.facebook", "hotjar.com", "hotjar.io", "segment.io", "segment.com",
   "mixpanel.com", "amplitude.com", "sentry.io", "clarity.ms", "bing.com/bat", "tiktok.com", "linkedin.com/px",
   "plausible.io", "matomo", "cookiebot.com", "onetrust.com", "intercom.io", "fullstory.com", "newrelic.com", "nr-data.net",
+  // consent banners, surveys and ads
+  "cookielaw.org", "usercentrics.eu", "didomi.io", "trustarc.com", "qualtrics.com", "adtrafficquality.google",
+  "googlesyndication.com", "googletagservices.com", "criteo.", "adnxs.com", "taboola.com", "outbrain.com", "scorecardresearch.com",
+  "pinterest.com", "google.com/rmkt", "google.com/pagead", "/_sec/", // ads; Akamai bot-protection sensor
 ];
+// Google Analytics 4 served from the site's own domain (data.example.com/g/collect?tid=G-...).
+const GA4 = /\/g\/collect\b|[?&]tid=G-/i;
+// Files a page loads to look right (icons, styles, fonts, scripts): never part of what a tool does.
+const STATIC_PATH = /\.(svg|png|jpe?g|gif|webp|avif|ico|css|m?js|map|woff2?|ttf|otf|eot)$/i;
+const STATIC_TYPE = /^(image\/|font\/|text\/css|text\/javascript|application\/(x-)?javascript)/i;
 
 export function snake(s) {
   return String(s || "")
@@ -36,7 +45,18 @@ export function fieldIsPersonal(f) {
   return ["name", "id", "label"].some((k) => PERSONAL.test(snake(f[k] || "")));
 }
 
-export const isTracker = (url) => TRACKERS.some((t) => String(url).toLowerCase().includes(t));
+export const isTracker = (url) => TRACKERS.some((t) => String(url).toLowerCase().includes(t)) || GA4.test(String(url));
+
+/** Tracking, ads, consent banners and static files (icons, styles, fonts, scripts). */
+export function isNoise(url, contentType = "") {
+  let path = "";
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    /* not a full address */
+  }
+  return isTracker(url) || STATIC_PATH.test(path) || STATIC_TYPE.test(String(contentType || ""));
+}
 
 export function maskText(text, known) {
   let out = String(text ?? "");
@@ -67,12 +87,24 @@ export function maskUrl(url, known) {
   }
 }
 
-export function parseBody(raw, contentType, known) {
+/** What a website answered: its own data stays readable (station, product and service names);
+ * only secrets, values the customer typed, emails and phone numbers are masked. */
+export function maskResponse(value, known) {
+  if (Array.isArray(value)) return value.map((v) => maskResponse(v, known));
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = SECRET.test(k) && (v === null || typeof v !== "object") ? MASK : maskResponse(v, known);
+    return out;
+  }
+  return typeof value === "string" ? maskText(value, known) : value;
+}
+
+export function parseBody(raw, contentType, known, response = false) {
   if (raw == null || raw === "") return null;
   const ct = String(contentType || "").toLowerCase();
   if (ct.includes("json") || /^\s*[{[]/.test(raw)) {
     try {
-      return maskData(JSON.parse(raw), known);
+      return (response ? maskResponse : maskData)(JSON.parse(raw), known);
     } catch {
       /* not JSON after all */
     }

@@ -124,11 +124,22 @@ def _cast(value: Any, kind: str) -> Any:
 
 
 def _set_path(body: dict[str, Any], path: str, value: Any) -> None:
+    """Put a value at a dotted path; a number in the path is a list position (places.0.value)."""
     parts = path.split(".")
-    cur = body
-    for p in parts[:-1]:
-        cur = cur.setdefault(p, {})
-    cur[parts[-1]] = value
+    cur: Any = body
+    for i, p in enumerate(parts):
+        last = i == len(parts) - 1
+        child: Any = value if last else ([] if parts[i + 1].isdigit() else {})
+        if isinstance(cur, list) and p.isdigit():
+            idx = int(p)
+            cur.extend([None] * (idx + 1 - len(cur)))
+            if last or cur[idx] is None:
+                cur[idx] = child
+            cur = cur[idx]
+        else:
+            if last or not isinstance(cur.get(p), (dict, list)):
+                cur[p] = child
+            cur = cur[p]
 
 
 def _masked(values: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
@@ -201,21 +212,50 @@ def html_text(html: str) -> str:
 # --- runners -------------------------------------------------------------------------------
 
 
-def build_request(tool: Tool, ctx: Context, values: dict[str, Any]) -> dict[str, Any]:
-    r = tool.runner
-    url = resolve_url(ctx, str(_fill(r.get("url", ""), values)))
+def _json_value(template: str, values: dict[str, Any]) -> Any:
+    """A field written as a JSON list or object ([{"type": "ID", "value": "{{origin_id}}"}]): filled
+    with JSON-escaped values, then sent as real JSON. None if the template isn't JSON."""
+    t = template.strip()
+    if not (t.startswith("[") and t.endswith("]")) and not (t.startswith("{") and t.endswith("}") and not _WHOLE.match(t)):
+        return None
+    filled = _PLACEHOLDER.sub(lambda m: json.dumps(str(values.get(m.group(1), "")))[1:-1], t)
+    try:
+        return json.loads(filled)
+    except ValueError:
+        return None
+
+
+def _build(spec: dict[str, Any], ctx: Context, values: dict[str, Any]) -> dict[str, Any]:
+    url = resolve_url(ctx, str(_fill(spec.get("url", ""), values)))
     body: dict[str, Any] = {}
-    for f in r.get("body_fields", []):
-        _set_path(body, f["path"], _cast(_fill(str(f.get("value", "")), values), f.get("type", "string")))
-    return {"method": r.get("method") or "GET", "url": url, "format": r.get("body_format", "json"), "body": body}
+    for f in spec.get("body_fields", []):
+        raw = str(f.get("value", ""))
+        if raw.strip() in ("null", "None"):  # an empty value (JSON null), as recorded
+            _set_path(body, f["path"], None)
+            continue
+        as_json = _json_value(raw, values)
+        _set_path(body, f["path"], as_json if as_json is not None else _cast(_fill(raw, values), f.get("type", "string")))
+    return {"method": spec.get("method") or "GET", "url": url, "format": spec.get("body_format", "json"), "body": body}
 
 
-async def _http(tool: Tool, ctx: Context, values: dict[str, Any], dry: bool) -> RunResult:
-    req = build_request(tool, ctx, values)
-    ensure_allowed(ctx, req["url"])
-    preview = {**req, "body": _masked(req["body"], tool.input_schema) if req["body"] else None}
-    if dry:
-        return RunResult(True, "Prepared the request but did not send it (dry run).", request=preview)
+def build_request(tool: Tool, ctx: Context, values: dict[str, Any]) -> dict[str, Any]:
+    return _build(tool.runner, ctx, values)
+
+
+def pick(data: Any, path: str) -> Any:
+    """The value at a dotted path in a JSON answer ("data.places.0.id"), or None."""
+    cur = data
+    for part in (path or "").split("."):
+        if isinstance(cur, list) and part.isdigit() and int(part) < len(cur):
+            cur = cur[int(part)]
+        elif isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        else:
+            return None
+    return None if isinstance(cur, (dict, list)) else cur
+
+
+async def _send(client: httpx.AsyncClient, req: dict[str, Any]) -> httpx.Response:
     kwargs: dict[str, Any] = {}
     if req["method"] != "GET" and req["body"]:
         if req["format"] == "form":
@@ -225,9 +265,41 @@ async def _http(tool: Tool, ctx: Context, values: dict[str, Any], dry: bool) -> 
             kwargs["json"] = req["body"]
     elif req["body"]:
         kwargs["params"] = req["body"]
+    return await client.request(req["method"], req["url"], **kwargs)
+
+
+async def _http(tool: Tool, ctx: Context, values: dict[str, Any], dry: bool) -> RunResult:
+    values = dict(values)
+    found: dict[str, Any] = {}
     async with httpx.AsyncClient(timeout=TIMEOUT_S, follow_redirects=False, headers={"user-agent": USER_AGENT}) as client:
+        # Lookups first (reads, so they also run in a dry run): each puts one value from its answer
+        # into {{name}} for the requests after it.
+        for lk in tool.runner.get("lookups") or []:
+            name = lk.get("name", "")
+            req = _build(lk, ctx, values)
+            ensure_allowed(ctx, req["url"])
+            try:
+                resp = await _send(client, req)
+            except httpx.HTTPError as exc:
+                return RunResult(False, f"Could not reach {urlsplit(req['url']).hostname} to look up {name} ({exc.__class__.__name__}).")
+            if not 200 <= resp.status_code < 300:
+                return RunResult(False, f"Looking up {name}: the business answered HTTP {resp.status_code}: {resp.text[:160]}", status=resp.status_code)
+            try:
+                value = pick(resp.json(), lk.get("pick", ""))
+            except ValueError:
+                value = None
+            if value in (None, ""):
+                return RunResult(False, f"Found no {name} in the answer (at {lk.get('pick', '')}). Check the value you gave, e.g. the spelling of a name.",
+                                 text=resp.text[:2000], status=resp.status_code)
+            values[name] = found[name] = value
+
+        req = build_request(tool, ctx, values)
+        ensure_allowed(ctx, req["url"])
+        preview = {**req, "body": _masked(req["body"], tool.input_schema) if req["body"] else None, **({"looked_up": found} if found else {})}
+        if dry:
+            return RunResult(True, "Prepared the request but did not send it (dry run).", request=preview)
         try:
-            resp = await client.request(req["method"], req["url"], **kwargs)
+            resp = await _send(client, req)
         except httpx.HTTPError as exc:
             return RunResult(False, f"Could not reach {urlsplit(req['url']).hostname} ({exc.__class__.__name__}).", request=preview, sent=True)
     text = resp.text[:TEXT_LIMIT]
@@ -356,6 +428,21 @@ async def _items(tool: Tool, ctx: Context) -> RunResult:
     return RunResult(True, f"Found {len(items)} items.", output={"title": title, "items": items}, text=text, status=200)
 
 
+def _shop(tool: Tool, ctx: Context, values: dict[str, Any]) -> RunResult:
+    """An Oasis shop's products, filtered by the customer's (optional) search, category, price and variants."""
+    from ..shop import catalog as shop_catalog  # the shop package reads the database; imported when used
+
+    business_id = (ctx.business or {}).get("id", "")
+    every = shop_catalog.items_for(business_id)
+    if not every:
+        return RunResult(False, "The shop has no products yet. Add one in your workspace.")
+    found = shop_catalog.search(every, values)
+    title = tool.runner.get("title") or "Products"
+    message = f"Found {len(found)} of {len(every)}." if found else f"Nothing matches; the shop has {len(every)} in total. Try fewer filters."
+    text = "\n".join(f"{i['name']} | {i['price'] or 'price on request'} | {i['section']} | {i['description'][:120]}" for i in found)
+    return RunResult(True, message, output={"title": title, "items": found, "total_in_shop": len(every)}, text=text, status=200)
+
+
 def _owner(tool: Tool, ctx: Context) -> RunResult:
     b = ctx.business
     out: dict[str, Any] = {}
@@ -441,6 +528,8 @@ async def run(tool: Tool, ctx: Context, values: dict[str, Any], *, dry: bool = F
         return await _items(tool, ctx)
     if kind == "owner_data":
         return _owner(tool, ctx)
+    if kind == "shop_catalog":
+        return _shop(tool, ctx, values)
     if kind == "browser_replay":
         return await _replay(tool, ctx, values, dry)
     raise NotAllowed(f"Unknown way of running a tool: {kind}")

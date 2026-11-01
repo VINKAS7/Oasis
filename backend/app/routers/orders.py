@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from .. import db
 from ..auth import User, current_user
 from ..gateway import orders
+from ..shop import catalog as shop_catalog
 from .workspaces import _owned
 
 router = APIRouter(prefix="/api/workspaces/{business_id}", tags=["orders"])
@@ -51,4 +52,7 @@ def decide(business_id: str, order_id: str, body: DecideIn, user: User = Depends
         )
         if cur.rowcount == 0:
             raise HTTPException(409, "This order was already answered, or it doesn't exist")
+        if body.status == "accepted":  # an Oasis shop's stock goes down when the owner accepts
+            o = conn.execute("SELECT items FROM orders WHERE id = ?", (order_id,)).fetchone()
+            shop_catalog.take_stock(conn, business_id, json.loads(o["items"]))
     return list_orders(business_id, user)

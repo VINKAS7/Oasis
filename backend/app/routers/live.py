@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 
 from .. import db
 from ..auth import User, current_user
-from ..config import PUBLIC_API_URL
-from ..gateway import business_mcp, service, signing
+from ..config import PUBLIC_API_URL, is_public
+from ..gateway import business_mcp, search_index, service, signing
 from ..registry.rules import inputs_from_schema
 from .workspaces import _owned
 
@@ -38,6 +38,7 @@ def publish(business_id: str, body: PublishIn, user: User = Depends(current_user
     if body.live:
         signing.ensure_key(business_id)
     db.update("businesses", business_id, status="live" if body.live else "draft", published_at=db.now() if body.live else None, updated_at=db.now())
+    search_index.schedule(business_id)  # found by meaning once live; forgotten once not
     return live(business_id, user)
 
 
@@ -75,6 +76,8 @@ def live(business_id: str, user: User = Depends(current_user)) -> dict:
         "mcp_url": f"{PUBLIC_API_URL}/mcp",
         # The business's own MCP server: its tools directly, served while the business is live.
         "server_url": business_mcp.url_for(PUBLIC_API_URL, business_id),
+        # False while the address is localhost: ChatGPT and Claude can't reach it from their servers.
+        "public": is_public(),
         "public_key": b["public_key"],
         "tools": [{"id": t["id"], "name": t["name"], "title": t["title"], "published": t["id"] in published, "reason": "" if t["id"] in published else why_not(t)} for t in tools],
         "activity": calls,

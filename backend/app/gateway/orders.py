@@ -32,7 +32,10 @@ REQUEST_SCHEMA: dict[str, Any] = {
         "items": {
             "type": "array",
             "description": "What to order: the item id (or exact name) from the business's catalog tool, and how many.",
-            "items": {"type": "object", "properties": {"id": {"type": "string"}, "quantity": {"type": "integer", "minimum": 1, "maximum": MAX_QUANTITY}}, "required": ["id", "quantity"]},
+            "items": {"type": "object", "properties": {
+                "id": {"type": "string"}, "quantity": {"type": "integer", "minimum": 1, "maximum": MAX_QUANTITY},
+                "options": {"type": "object", "description": "For items with options (size, colour...): the customer's choice, e.g. {\"size\": \"M\", \"colour\": \"Black\"}.",
+                            "additionalProperties": {"type": "string"}}}, "required": ["id", "quantity"]},
         },
         "customer_name": {"type": "string", "description": "The customer's name.", "x-personal": True},
         "customer_contact": {"type": "string", "description": "A phone number or email the business can reach the customer at.", "x-personal": True},
@@ -57,7 +60,7 @@ class OrderError(Exception):
 def catalog_tools(conn, business_id: str) -> list[dict[str, Any]]:
     from .service import published_tools  # service imports this module
 
-    return [t for t in published_tools(conn, business_id) if json.loads(t["runner"]).get("kind") == "item_list"]
+    return [t for t in published_tools(conn, business_id) if json.loads(t["runner"]).get("kind") in ("item_list", "shop_catalog")]
 
 
 def available(conn, business: dict[str, Any]) -> bool:
@@ -86,6 +89,9 @@ def save_snapshot(business_id: str, tool_id: str, output: Any) -> None:
             " ON CONFLICT(tool_id) DO UPDATE SET items = excluded.items, fetched_at = excluded.fetched_at",
             (tool_id, business_id, json.dumps(items, ensure_ascii=False), db.now()),
         )
+    from . import search_index
+
+    search_index.schedule(business_id)  # its items, as found by meaning
 
 
 def _known_items(business_id: str) -> list[dict[str, Any]]:
@@ -96,7 +102,14 @@ def _known_items(business_id: str) -> list[dict[str, Any]]:
 
 
 async def _catalog(business_id: str) -> list[dict[str, Any]]:
-    """The items to price an order from. When no tool has run yet, run the first one."""
+    """The items to price an order from. An Oasis shop: its products, as they are now. Otherwise the
+    last items its catalog tool returned; when none has run yet, run the first one."""
+    from ..shop import catalog as shop_catalog
+
+    with db.session() as conn:
+        is_shop = bool(conn.execute("SELECT shop_template FROM businesses WHERE id = ?", (business_id,)).fetchone()[0])
+    if is_shop:
+        return shop_catalog.items_for(business_id)
     items = _known_items(business_id)
     if not items:
         from .service import GatewayError, call_tool
@@ -132,8 +145,27 @@ def _lines(requested: Any, catalog: list[dict[str, Any]]) -> list[dict[str, Any]
             qty = 0
         if not 1 <= qty <= MAX_QUANTITY:
             raise OrderError("bad_input", f"Quantities go from 1 to {MAX_QUANTITY} ({item['name']}).")
-        line = lines.setdefault(item["id"], {"id": item["id"], "name": item["name"], "quantity": 0, "amount": item.get("amount"), "currency": item.get("currency", "")})
+        options = item.get("options") or {}
+        variant = ""
+        if options:  # sizes, colours...: the customer must choose, and the choice must exist
+            from ..shop.templates import variant_key
+
+            chosen = r.get("options") if isinstance(r.get("options"), dict) else {}
+            variant = variant_key(options, chosen) or ""
+            if not variant:
+                choices = "; ".join(f"{axis}: {', '.join(values)}" for axis, values in options.items())
+                raise OrderError("bad_input", f"Choose the options for {item['name']} ({choices}).")
+        line = lines.setdefault(f"{item['id']}|{variant}", {"id": item["id"], "name": item["name"] + (f" ({variant.replace('/', ', ')})" if variant else ""),
+                                                            "quantity": 0, "amount": item.get("amount"), "currency": item.get("currency", ""),
+                                                            **({"variant": variant, "options": dict(zip(options, variant.split("/")))} if variant else {})})
         line["quantity"] = min(MAX_QUANTITY, line["quantity"] + qty)
+        available = item.get("available")
+        if isinstance(available, dict) and variant in available and line["quantity"] > int(available[variant]):
+            left = int(available[variant])
+            raise OrderError("bad_input", f"Only {left} left of {line['name']}." if left else f"{line['name']} is sold out.")
+        if isinstance(available, dict) and not options and "" in available and line["quantity"] > int(available[""]):
+            left = int(available[""])
+            raise OrderError("bad_input", f"Only {left} left of {item['name']}." if left else f"{item['name']} is sold out.")
     return list(lines.values())
 
 
@@ -190,7 +222,15 @@ async def request(business: dict[str, Any], inputs: dict[str, Any], user_confirm
     _log(business["id"], None, REQUEST, "ok", logged, result={"order_id": order_id, "total": total}, message=summary, started=started)
     return {"ok": True, "business": business["name"], "order_id": order_id, "status": "pending", "status_token": token,
             "lines": lines, "total": total, "currency": currency,
-            "message": f"Order sent: {summary}. {business['name']} will accept or decline it; check with get_order_status."}
+            "message": f"{_order_word(business).capitalize()} sent: {summary}. {business['name']} will accept or decline it; check with get_order_status."}
+
+
+def _order_word(business: dict[str, Any]) -> str:
+    """"order", or the shop template's own word ("booking request" for services)."""
+    from ..shop import templates
+
+    template = business.get("shop_template") or ""
+    return templates.get(template)["order_word"] if template else "order"
 
 
 def status(business: dict[str, Any], inputs: dict[str, Any]) -> dict[str, Any]:

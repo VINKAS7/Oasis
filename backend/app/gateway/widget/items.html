@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Oasis items</title>
+<!--
+  Oasis item cards as an MCP App (extension io.modelcontextprotocol/ui, protocol 2026-01-26).
+  The assistant (Claude, ChatGPT...) shows this page in a sandboxed frame and talks to it with
+  JSON-RPC over postMessage: ui/initialize, then ui/notifications/tool-result with the tool's
+  result. Ordering goes back to the Oasis server with tools/call, only after the customer clicks
+  Send order; prices always come from the server.
+
+  Three kinds of result: a business's items (show_items, get_menu...), businesses (find_nearby,
+  search_businesses: nearest first, with a Google map of the route), and a request for the user's
+  location (find_nearby without one). The location is asked from the browser only when the user
+  presses "Use my location", sent to Oasis for that one search, and never stored.
+-->
+<style>
+  /* The frame stays transparent so the conversation shows through. Its color-scheme must match
+     the assistant's theme: when it differs, browsers paint an opaque white (or black) canvas. */
+  :root { color-scheme: light; }
+  :root.dark { color-scheme: dark; }
+  :root {
+    --bg: transparent; --card: #ffffff; --ink: #0b0e13; --ink-2: #44474d; --muted: #75777c; --line: #e6e5e0;
+    --soft: #f4f3ee; --accent: #0d8a78; --accent-ink: #ffffff; --strong: #1c1f24; --strong-ink: #ffffff;
+    --ok-bg: #e8f5ec; --ok-line: #bfe3c9; --bad-bg: #fbecea; --bad-line: #f2c6c0; --bad-ink: #a3362a;
+  }
+  :root.dark {
+    --card: #15191f; --ink: #f4f3ee; --ink-2: #d4d3ce; --muted: #9a9b9f; --line: #2a2f36;
+    --soft: #1c2128; --accent: #2de2c8; --accent-ink: #0b0e13; --strong: #f4f3ee; --strong-ink: #0b0e13;
+    --ok-bg: rgba(52, 168, 83, .14); --ok-line: rgba(52, 168, 83, .35); --bad-bg: rgba(220, 80, 60, .14); --bad-line: rgba(220, 80, 60, .35); --bad-ink: #f19a8c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; color: var(--ink); font: 14px/1.45 var(--font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif); }
+  #app { padding: 2px 2px 6px; }
+  .head { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .head b { color: var(--ink); font-weight: 600; }
+  .section { margin: 12px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .grid.text { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; transition: border-color .15s; }
+  .card.picked { border-color: var(--strong); }
+  .pic { aspect-ratio: 4 / 3; width: 100%; object-fit: cover; display: block; background: var(--soft); }
+  .nopic { aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; background: var(--soft); color: var(--muted); font-size: 12px; }
+  .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .row { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .name { font-weight: 600; line-height: 1.3; }
+  .price { flex-shrink: 0; font-weight: 600; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .desc { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 3; }
+  .text .desc { -webkit-line-clamp: 5; }
+  .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+  button { font: inherit; cursor: pointer; }
+  .link { background: none; border: 0; padding: 0; color: var(--accent); font-size: 12.5px; font-weight: 600; }
+  .link:hover { text-decoration: underline; }
+  .chip { border: 1px solid var(--line); background: var(--card); color: var(--ink-2); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+  .chip:hover { background: var(--soft); }
+  .stepper { display: inline-flex; align-items: center; background: var(--strong); color: var(--strong-ink); border-radius: 999px; }
+  .stepper button { background: none; border: 0; color: inherit; width: 28px; height: 26px; border-radius: 999px; font-size: 15px; line-height: 1; }
+  .stepper span { min-width: 18px; text-align: center; font-size: 12px; font-weight: 700; }
+  .more { margin-top: 10px; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  .bar { position: sticky; bottom: 4px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+         background: var(--strong); color: var(--strong-ink); border-radius: 12px; padding: 9px 10px 9px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+  .bar button { background: var(--strong-ink); color: var(--strong); border: 0; border-radius: 999px; padding: 5px 12px; font-weight: 600; }
+  .panel { margin-top: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .panel h4 { margin: 0 0 6px; font-size: 14px; }
+  .lines { list-style: none; margin: 0; padding: 0; }
+  .lines li { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .total { display: flex; justify-content: space-between; padding-top: 7px; font-weight: 700; font-size: 13px; }
+  .fields { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 12px; }
+  input { font: inherit; font-size: 13px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
+  input:focus { outline: none; border-color: var(--accent); }
+  .buttons { display: flex; gap: 8px; margin-top: 12px; }
+  .primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 7px 14px; font-weight: 600; }
+  .primary[disabled] { opacity: .6; cursor: default; }
+  .secondary { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; }
+  .error { color: var(--bad-ink); font-size: 13px; margin-top: 8px; }
+  .status.accepted { background: var(--ok-bg); border-color: var(--ok-line); }
+  .status.declined { background: var(--bad-bg); border-color: var(--bad-line); }
+  .status .title { font-weight: 600; }
+  .status p { margin: 4px 0 0; color: var(--ink-2); font-size: 13px; }
+  .empty { color: var(--muted); font-size: 13px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .opts select { font: inherit; font-size: 12px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; }
+  .dots { display: flex; justify-content: center; gap: 5px; margin-top: -14px; position: relative; padding-bottom: 6px; }
+  .dots button { width: 7px; height: 7px; border-radius: 50%; border: 0; padding: 0; background: rgba(255,255,255,.55); box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+  .dots button.on { background: #fff; }
+  .tags { color: var(--muted); font-size: 11.5px; }
+  .stock { font-size: 11.5px; color: var(--muted); }
+  .stock.low { color: #b45309; }
+  .stock.out { color: var(--bad-ink); }
+  .brand { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; margin-top: 10px; }
+  .brand i { width: 8px; height: 8px; border-radius: 50%; background: #1fc9ae; display: inline-block; }
+  /* places: businesses found nearby or by search */
+  .places { display: grid; gap: 10px; }
+  .place { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s; }
+  .place.picked { border-color: var(--accent); }
+  .place .desc { -webkit-line-clamp: 2; }
+  .dist { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .mis { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+  .mi { background: var(--soft); border-radius: 999px; padding: 2px 9px; font-size: 11.5px; color: var(--ink-2); }
+  .map { margin-top: 8px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+  .map iframe { display: block; width: 100%; height: 280px; border: 0; background: var(--soft); }
+  .maprow { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; align-items: center; padding: 7px 10px; background: var(--soft); }
+  .back { margin-right: 8px; }
+  .sortbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .sortbar .label { color: var(--muted); font-size: 12px; font-weight: 600; }
+  .sortbar input { flex: 1; min-width: 160px; }
+  .sortbar .primary, .sortbar .secondary { padding: 5px 12px; }
+  .sortbar .error { flex-basis: 100%; }
+  .inline { display: flex; gap: 8px; margin-top: 10px; }
+  .inline input { flex: 1; }
+  .link[disabled] { opacity: .6; cursor: default; text-decoration: none; }
+</style>
+</head>
+<body>
+<div id="app"><p class="empty">Loading…</p></div>
+<script>
+(() => {
+  "use strict";
+  const PROTOCOL = "2026-01-26";
+  const SHOWN = 9;
+  const app = document.getElementById("app");
+
+  // ---- JSON-RPC over postMessage with the assistant (the host) ----
+  let nextId = 1;
+  const pending = new Map();
+  const post = (msg) => window.parent.postMessage({ jsonrpc: "2.0", ...msg }, "*");
+  const request = (method, params) => new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    post({ id, method, params });
+  });
+  const notify = (method, params) => post({ method, params });
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent) return;
+    const m = event.data;
+    if (!m || m.jsonrpc !== "2.0") return;
+    if (m.id !== undefined && !m.method) {  // an answer to one of our requests
+      const p = pending.get(m.id);
+      if (!p) return;
+      pending.delete(m.id);
+      m.error ? p.reject(new Error(m.error.message || "The assistant refused the request.")) : p.resolve(m.result);
+      return;
+    }
+    if (m.method === "ui/notifications/tool-result") { backTo = null; show(m.params); }
+    else if (m.method === "ui/notifications/host-context-changed") applyContext(m.params);
+    if (m.id !== undefined) post({ id: m.id, result: {} });  // ui/resource-teardown, ping...
+  });
+
+  function applyContext(ctx) {
+    if (!ctx) return;
+    if (ctx.theme) document.documentElement.classList.toggle("dark", ctx.theme === "dark");
+    // The assistant's own fonts (--font-sans...), so the cards look native in its conversation.
+    const vars = ctx.styles && ctx.styles.variables;
+    if (vars) for (const [k, v] of Object.entries(vars)) if (k.startsWith("--font") && v) document.documentElement.style.setProperty(k, v);
+  }
+  if (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");
+
+  // Tell the assistant how tall the cards are, so the frame fits them.
+  let lastHeight = 0;
+  new ResizeObserver(() => {
+    const height = Math.ceil(document.documentElement.getBoundingClientRect().height);
+    if (height !== lastHeight) { lastHeight = height; notify("ui/notifications/size-changed", { height }); }
+  }).observe(document.body);
+
+  async function callTool(name, args) {
+    if (window.openai && window.openai.callTool && !connected) {  // older ChatGPT bridge
+      const r = await window.openai.callTool(name, args);
+      return r && (r.structuredContent || r);
+    }
+    const r = await request("tools/call", { name, arguments: args });
+    const data = (r && r.structuredContent) || {};
+    if ((r && r.isError) || data.ok === false) throw new Error(data.message || "That didn't work. Try again.");
+    return data;
+  }
+  function openLink(url) {
+    request("ui/open-link", { url }).catch(() => window.open(url, "_blank", "noopener,noreferrer"));
+  }
+  function ask(text) {
+    if (window.openai && window.openai.sendFollowUpMessage && !connected) return window.openai.sendFollowUpMessage({ prompt: text });
+    request("ui/message", { role: "user", content: [{ type: "text", text }] }).catch(() => undefined);
+  }
+
+  // ---- state ----
+  let data = null;          // { business, business_id?, tool, result: { title, items }, can_order }
+  let cart = {};
+  let showAll = false;
+  let step = "pick";        // pick | review
+  let form = { customer_name: "", customer_contact: "", pickup_time: "", note: "" };
+  let order = null;         // the request_order answer, plus status / owner_note
+  let busy = false;
+  let error = "";
+  let connected = false;
+  let chosen = {};     // item id -> {size: "M", colour: "Black"}: the variant picked on its card
+  let photoAt = {};    // item id -> which of its photos is shown
+  const photoData = {}; // "id:index" -> data: URL fetched through MCP when the address won't load
+  // places mode
+  let places = null;    // { query, type, you?, businesses, online, widened, radius_km } or { need_location }
+  let backTo = null;    // the places to return to from one business's items
+  let selected = "";    // the business whose map is open
+  let me = null;        // { lat, lng, label }: the user's position, kept only in this card
+  let locating = false, locError = "", where = "", opening = "";
+
+  function show(result) {
+    const sc = (result && (result.structuredContent || result)) || {};
+    if (sc.need_location || Array.isArray(sc.businesses)) {
+      places = sc; data = null; selected = ""; error = ""; opening = "";
+      locError = sc.need_location && sc.reason === "location" ? sc.message || "" : "";
+      if (sc.you) me = { lat: sc.you.lat, lng: sc.you.lng, label: sc.you.label, approximate: !!sc.you.approximate };
+      render();
+      return;
+    }
+    if (sc.ok === false) { data = null; places = null; app.innerHTML = `<p class="empty">${esc(sc.message || "Nothing to show.")}</p>`; return; }
+    data = sc; places = null;
+    cart = {}; step = "pick"; order = null; error = ""; showAll = false; chosen = {}; photoAt = {};
+    render();
+  }
+
+  // ---- helpers ----
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  function money(amount, currency) {
+    if (amount === null || amount === undefined) return "";
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "CHF" }).format(amount); }
+    catch { return `${currency || ""} ${Number(amount).toFixed(2)}`.trim(); }
+  }
+  const items = () => ((data && data.result && data.result.items) || []);
+  const byId = (id) => items().find((i) => i.id === id);
+  const axes = (i) => Object.keys(i.options || {});
+  const keyOf = (id, variant) => (variant ? `${id}::${variant}` : id);
+  const splitKey = (k) => { const at = k.indexOf("::"); return at < 0 ? [k, ""] : [k.slice(0, at), k.slice(at + 2)]; };
+  // Stock for a variant ("M/Black"), or null when the shop doesn't track it.
+  const stockOf = (i, variant) => (i.available && variant in i.available ? i.available[variant] : (i.available && "" in i.available && !variant ? i.available[""] : null));
+  // The variant chosen on a card: the owner's choice, else the first combination in stock.
+  function variantOf(i) {
+    const ax = axes(i);
+    if (!ax.length) return "";
+    // What the customer asked for ("black tee": colour Black) unless they picked something on the card.
+    const pick = { ...(i.preselect || {}), ...(chosen[i.id] || {}) };
+    if (ax.every((a) => pick[a])) return ax.map((a) => pick[a]).join("/");
+    const combos = ax.reduce((acc, a) => acc.flatMap((k) => i.options[a].map((v) => (k ? `${k}/${v}` : v))), [""]);
+    const inStock = (c) => { const n = stockOf(i, c); return n === null || n > 0; };
+    const fits = (c) => c.split("/").every((v, n) => !pick[ax[n]] || pick[ax[n]] === v);
+    return combos.find((c) => fits(c) && inStock(c)) || combos.find(fits) || combos.find(inStock) || combos[0];
+  }
+  const label = (variant) => variant.split("/").join(", ");
+  // Ordering needs the business's yes and a list with prices (not projects or skills).
+  const canOrder = () => !!(data && data.can_order) && !order && items().some((i) => i.price);
+  function cartTotal() {
+    let count = 0, total = 0, currency = "";
+    for (const [k, q] of Object.entries(cart)) {
+      const i = byId(splitKey(k)[0]);
+      if (!q || !i) continue;
+      count += q; currency = currency || i.currency;
+      total = i.amount === null || total === null ? null : total + i.amount * q;
+    }
+    return { count, total, currency };
+  }
+  const inCart = (id) => Object.entries(cart).filter(([k, q]) => q && splitKey(k)[0] === id).reduce((n, [, q]) => n + q, 0);
+
+  // ---- views ----
+  function details(i) {
+    const parts = [];
+    for (const v of Object.values(i.attributes || {})) parts.push(Array.isArray(v) ? v.join(" · ") : String(v));
+    return parts.length ? `<div class="tags">${esc(parts.slice(0, 4).join(" · "))}</div>` : "";
+  }
+
+  function card(i, pictures) {
+    const variant = variantOf(i);
+    const key = keyOf(i.id, variant);
+    const q = cart[key] || 0;
+    const price = i.price ? `<span class="price">${esc(money(i.amount, i.currency) || i.price)}</span>` : "";
+    const photos = (i.images && i.images.length ? i.images : i.image_url ? [i.image_url] : []);
+    const at = Math.min(photoAt[i.id] || 0, Math.max(0, photos.length - 1));
+    const src = photoData[`${i.id}:${at}`] || photos[at];
+    let pic = "";
+    if (pictures) {
+      pic = src ? `<img class="pic" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback data-item="${esc(i.id)}" data-index="${at}">` : `<div class="nopic">No picture</div>`;
+      if (photos.length > 1) pic += `<div class="dots">${photos.map((_, n) => `<button data-photo="${esc(i.id)}" data-n="${n}" class="${n === at ? "on" : ""}" aria-label="Photo ${n + 1}"></button>`).join("")}</div>`;
+    }
+    // Sizes, colours...: one picker per option; a value with nothing left in any combination is marked.
+    let opts = "";
+    if (axes(i).length) {
+      const parts = variant.split("/");
+      opts = `<div class="opts">${axes(i).map((a, n) => `<select data-opt="${esc(i.id)}" data-axis="${esc(a)}" aria-label="${esc(a)}">${i.options[a].map((v) => {
+        const any = Object.entries(i.available || {}).some(([k, c]) => k.split("/")[n] === v && c > 0);
+        const out = i.available && Object.keys(i.available).length && !any;
+        return `<option value="${esc(v)}"${parts[n] === v ? " selected" : ""}>${esc(v)}${out ? " (sold out)" : ""}</option>`;
+      }).join("")}</select>`).join("")}</div>`;
+    }
+    const left = stockOf(i, variant);
+    const stock = left === null ? "" : left <= 0 ? `<span class="stock out">Sold out${variant ? ` in ${esc(label(variant))}` : ""}</span>`
+      : left <= 3 ? `<span class="stock low">Only ${left} left</span>` : "";
+    let pick = "";
+    if (canOrder() && !(left !== null && left <= 0)) {
+      pick = q
+        ? `<span class="stepper"><button data-qty="${esc(key)}" data-d="-1" aria-label="One less">−</button><span>${q}</span><button data-qty="${esc(key)}" data-d="1" data-max="${left === null ? 20 : left}" aria-label="One more">+</button></span>`
+        : `<button class="chip" data-qty="${esc(key)}" data-d="1" data-max="${left === null ? 20 : left}">+ Add</button>`;
+    }
+    const open = i.url ? `<button class="link" data-open="${esc(i.url)}">Open ↗</button>` : "";
+    const askBtn = `<button class="link" data-ask="${esc(i.name)}">Ask about this</button>`;
+    return `<div class="card${inCart(i.id) ? " picked" : ""}">${pic}<div class="body">
+      <div class="row"><span class="name">${esc(i.name)}</span>${price}</div>
+      ${details(i)}
+      ${i.description ? `<div class="desc">${esc(i.description)}</div>` : ""}
+      ${opts}${stock ? `<div>${stock}</div>` : ""}
+      <div class="actions">${pick}${open}${askBtn}</div></div></div>`;
+  }
+
+  function reviewPanel() {
+    const { total, currency } = cartTotal();
+    const lines = Object.entries(cart).filter(([, q]) => q).map(([k, q]) => {
+      const [id, variant] = splitKey(k);
+      const i = byId(id);
+      if (!i) return "";
+      return `<li><span>${q}× ${esc(i.name)}${variant ? ` (${esc(label(variant))})` : ""}</span><span>${esc(money(i.amount === null ? null : i.amount * q, i.currency) || "price on request")}</span></li>`;
+    }).join("");
+    return `<form class="panel" id="review"><h4>Your order from ${esc(data.business)}</h4>
+      <ul class="lines">${lines}</ul>
+      <div class="total"><span>Total</span><span>${total === null ? "confirmed by the business" : esc(money(total, currency))}</span></div>
+      <div class="fields">
+        <input name="customer_name" required maxlength="80" placeholder="Your name" value="${esc(form.customer_name)}">
+        <input name="customer_contact" required maxlength="120" placeholder="Phone or email" value="${esc(form.customer_contact)}">
+        <input name="pickup_time" maxlength="40" placeholder="When? e.g. today 19:00" value="${esc(form.pickup_time)}">
+        <input name="note" maxlength="300" placeholder="Note (optional)" value="${esc(form.note)}">
+      </div>
+      ${error ? `<div class="error">${esc(error)}</div>` : ""}
+      <p class="note">${esc(data.business)} confirms or declines your order; you'll see the answer here. Nothing is paid now.</p>
+      <div class="buttons"><button class="primary" type="submit" ${busy ? "disabled" : ""}>${busy ? "Sending…" : "Send order"}</button>
+      <button class="secondary" type="button" data-back ${busy ? "disabled" : ""}>Back</button></div></form>`;
+  }
+
+  function statusPanel() {
+    const o = order;
+    const title = o.status === "accepted" ? `${data.business} accepted your order`
+      : o.status === "declined" ? `${data.business} declined your order` : `Sent to ${data.business}, waiting for their answer…`;
+    const what = (o.lines || []).map((l) => `${l.quantity}× ${l.name}`).join(", ") + (o.total !== null && o.total !== undefined ? ` · ${money(o.total, o.currency)}` : "");
+    return `<div class="panel status ${esc(o.status)}"><div class="title">${esc(title)}</div><p>${esc(what)}</p>
+      ${o.owner_note ? `<p>“${esc(o.owner_note)}”</p>` : ""}
+      ${o.status === "pending" ? `<div class="buttons"><button class="secondary" data-check ${busy ? "disabled" : ""}>Check now</button></div>` : ""}
+      ${error ? `<div class="error">${esc(error)}</div>` : ""}</div>`;
+  }
+
+  // ---- places: businesses nearest first, with a map ----
+  const placeList = () => (places ? [...(places.businesses || []), ...(places.online || [])] : []);
+  const placeById = (id) => placeList().find((b) => b.business_id === id);
+  const km = (d) => (d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(d < 10 ? 1 : 0)} km`);
+  const coords = (p) => `${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)}`;
+  function mapSrc(b) {
+    // Google Maps' keyless embed: the route from the user when we know where they are, else the place.
+    return me ? `https://maps.google.com/maps?saddr=${coords(me)}&daddr=${coords(b)}&output=embed`
+              : `https://maps.google.com/maps?q=${coords(b)}&z=15&output=embed`;
+  }
+  const directions = (b) => `https://www.google.com/maps/dir/?api=1${me ? `&origin=${coords(me)}` : ""}&destination=${coords(b)}`;
+
+  function placeCard(b) {
+    const id = esc(b.business_id);
+    const located = b.lat !== null && b.lat !== undefined && b.lng !== null && b.lng !== undefined;
+    const open = selected === b.business_id && located;
+    const dist = typeof b.distance_km === "number" ? `<span class="dist">${km(b.distance_km)}</span>` : b.online_only ? `<span class="dist">Online</span>` : "";
+    const when = b.open_at_requested_time === true ? " · open then" : "";
+    const hits = (b.matching_items || []).map((i) => `<span class="mi">${esc(i.name)}${i.price ? ` · ${esc(i.price)}` : ""}</span>`).join("");
+    let map = "";
+    if (open) {
+      map = `<div class="map"><iframe src="${esc(mapSrc(b))}" title="Map: ${esc(b.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        <div class="maprow"><span class="tags">${me ? `${esc(me.label)} → ${esc(b.name)}` : esc(b.address || b.name)}</span>
+        <span>${me ? "" : `<button class="link" data-route="${id}" ${locating ? "disabled" : ""}>${locating ? "Locating…" : "Route from my location"}</button> `}
+        <button class="link" data-dir="${id}">Open in Google Maps ↗</button></span></div></div>
+        ${locError ? `<div class="error">${esc(locError)}</div>` : ""}`;
+    }
+    return `<div class="place${open ? " picked" : ""}">
+      <div class="row"><span class="name">${esc(b.name)}</span>${dist}</div>
+      <div class="tags">${esc(b.kind)}${b.address ? ` · ${esc(b.address)}` : ""}${when}</div>
+      ${b.description ? `<div class="desc">${esc(b.description)}</div>` : ""}
+      ${hits ? `<div class="mis">${hits}</div>` : ""}
+      <div class="actions"><button class="chip" data-items="${id}" ${opening ? "disabled" : ""}>${opening === b.business_id ? "Opening…" : "Show items"}</button>
+        ${located ? `<button class="chip" data-map="${id}">${open ? "Hide map" : "Map"}</button><button class="link" data-dir="${id}">Directions ↗</button>` : ""}
+        ${b.online_only && b.website ? `<button class="link" data-open="${esc(b.website)}">Website ↗</button>` : ""}</div>
+      ${map}</div>`;
+  }
+
+  function locatePanel() {
+    const what = places.query || places.type || "places";
+    return `<form class="panel" id="where"><h4>Find the nearest ${esc(what)}</h4>
+      <p class="note" style="margin-top:0">Share your location so Oasis can find the closest places. It's used for this search only and never stored.</p>
+      <div class="buttons"><button class="primary" type="button" data-locate ${locating ? "disabled" : ""}>${locating ? "Locating…" : "Use my location"}</button></div>
+      <div class="inline"><input name="where" maxlength="120" placeholder="Or type a street, area or city" aria-label="Your street, area or city" value="${esc(where)}">
+        <button class="secondary" type="submit" ${locating ? "disabled" : ""}>Search</button></div>
+      ${locError ? `<div class="error">${esc(locError)}</div>` : ""}</form>`;
+  }
+
+  // Above results found without a location: share it or type a place to sort them nearest first.
+  function sortBar() {
+    return `<form class="sortbar" id="where"><span class="label">Sort by distance</span>
+      <button class="primary" type="button" data-locate ${locating ? "disabled" : ""}>${locating ? "Locating…" : "Use my location"}</button>
+      <input name="where" maxlength="120" placeholder="or type a street, area or city" aria-label="Your street, area or city" value="${esc(where)}">
+      <button class="secondary" type="submit" ${locating ? "disabled" : ""}>Search</button>
+      ${locError ? `<div class="error">${esc(locError)}</div>` : ""}</form>`;
+  }
+
+  function renderPlaces() {
+    const p = places;
+    const list = p.businesses || [];
+    const online = p.online || [];
+    // Only when there's nothing to list yet (a place that couldn't be found): ask where they are.
+    // A search everywhere that found nothing says so below; a location wouldn't change it.
+    if (p.need_location && !Array.isArray(p.businesses)) { app.innerHTML = locatePanel() + `<div class="brand"><i></i>Oasis</div>`; return; }
+    const what = p.query || p.type || "";
+    let html = p.you
+      ? `<div class="head"><b>Nearest${what ? ` ${esc(what)}` : ""}</b> · near ${esc(p.you.label)}${p.you.approximate ? " (approximate)" : ""}</div>`
+      : `<div class="head"><b>${list.length} result${list.length === 1 ? "" : "s"}</b>${what ? ` for “${esc(what)}”` : ""}${p.need_location ? " · not sorted by distance" : ""}</div>`;
+    if (p.need_location && list.length) html += sortBar();
+    if (error) html += `<div class="error">${esc(error)}</div>`;
+    if (p.widened && list.length) html += `<p class="note" style="margin-top:0">Nothing within ${esc(p.radius_km)} km, so these are the closest.</p>`;
+    if (!list.length) html += `<p class="empty">${p.you ? "No place near you offers that yet." : online.length ? "No local place offers that yet." : "No business offers that yet."}</p>`;
+    if (list.length) html += `<div class="places">${list.map(placeCard).join("")}</div>`;
+    if ((p.online || []).length) html += `<div class="section">Also online</div><div class="places">${p.online.map(placeCard).join("")}</div>`;
+    if (p.you) html += `<p class="note">Your location is used for this search only and never stored.</p>`;
+    html += `<div class="brand"><i></i>Oasis</div>`;
+    app.innerHTML = html;
+  }
+
+  function geolocate() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) { reject(new Error("This app can't read your location here. Type a street, area or city instead.")); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "Your location", approximate: false }),
+        (err) => reject(new Error(err && err.code === 1 ? "Location access is blocked here. Type a street, area or city instead."
+                                                         : "Couldn't get your location. Type a street, area or city instead.")),
+        { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 });
+    });
+  }
+
+  // Search again near the user: their position from the browser, or a place they typed.
+  async function searchNear(args) {
+    const q = places || {};
+    locating = true; locError = ""; render();
+    try {
+      const r = await callTool("find_nearby", { query: q.query || "", ...(q.type ? { type: q.type } : {}), ...(q.radius_km ? { radius_km: q.radius_km } : {}), ...args });
+      locating = false;
+      show(r);
+      // The assistant didn't see this search: say what the user now sees (no coordinates).
+      const names = (r.businesses || []).slice(0, 5).map((b) => `${b.name}${typeof b.distance_km === "number" ? ` (${b.distance_km} km)` : ""}`).join(", ");
+      if (!r.need_location) request("ui/update-model-context", { content: [{ type: "text", text: `The user shared their location in the Oasis card. ${r.message || ""} Shown: ${names || "nothing nearby"}.` }] }).catch(() => undefined);
+    } catch (err) { locating = false; locError = err.message; render(); }
+  }
+
+  async function useMyLocation() {
+    locating = true; locError = ""; render();
+    try {
+      const pos = await geolocate();
+      me = pos;
+      await searchNear({ latitude: Number(pos.lat.toFixed(5)), longitude: Number(pos.lng.toFixed(5)) });
+    } catch (err) { locating = false; locError = err.message; render(); }
+  }
+
+  async function routeFromMe() {
+    locating = true; locError = ""; render();
+    try { me = await geolocate(); } catch (err) { locError = err.message; }
+    locating = false; render();
+  }
+
+  async function openItems(id, search) {
+    opening = id; error = ""; render();
+    try {
+      const r = await callTool("show_items", { business_id: id, ...(search ? { search } : {}) });
+      opening = "";
+      backTo = places;  // before show(), which draws the Back button from it
+      show(r);
+    } catch (err) { opening = ""; error = err.message; render(); }
+  }
+
+  function render() {
+    if (places) { renderPlaces(); return; }
+    if (!data) return;
+    const all = items();
+    const title = (data.result && data.result.title) || data.tool || "Items";
+    const back = backTo ? `<button class="link back" data-back-places>← Back</button>` : "";
+    if (!all.length) { app.innerHTML = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)}</div><p class="empty">No items right now.</p>`; return; }
+    const shown = showAll ? all : all.slice(0, SHOWN);
+    const pictures = all.some((i) => i.image_url);
+    const sections = [...new Set(shown.map((i) => i.section || ""))];
+    let html = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)} · ${all.length} item${all.length === 1 ? "" : "s"}</div>`;
+    if (data.search && data.message) html += `<p class="note" style="margin:-4px 0 10px">${esc(data.message)} <button class="link" data-everything>Show everything</button></p>`;
+    for (const s of sections) {
+      if (sections.length > 1 && s) html += `<div class="section">${esc(s)}</div>`;
+      html += `<div class="grid${pictures ? "" : " text"}">${shown.filter((i) => (i.section || "") === s).map((i) => card(i, pictures)).join("")}</div>`;
+    }
+    if (all.length > SHOWN) html += `<div class="more"><button class="link" data-all>${showAll ? "Show fewer" : `Show all ${all.length}`}</button></div>`;
+    if (!data.can_order && all.some((i) => i.amount !== null && i.amount !== undefined)) html += `<p class="note">${esc(data.business)} doesn't take orders through Oasis. Contact them directly to order.</p>`;
+    const { count, total, currency } = cartTotal();
+    if (canOrder() && count && step === "pick") {
+      html += `<div class="bar"><span>Your order · ${count} item${count === 1 ? "" : "s"}${total !== null ? ` · ${esc(money(total, currency))}` : ""}</span><button data-review>Review order</button></div>`;
+    }
+    if (canOrder() && step === "review") html += reviewPanel();
+    if (order) html += statusPanel();
+    html += `<div class="brand"><i></i>Oasis</div>`;
+    app.innerHTML = html;
+    for (const img of app.querySelectorAll("img[data-fallback]")) {
+      img.addEventListener("error", () => photoFallback(img), { once: true });
+    }
+  }
+
+  async function photoFallback(img) {
+    const id = img.dataset.item, n = Number(img.dataset.index || 0);
+    const noPic = () => { const d = document.createElement("div"); d.className = "nopic"; d.textContent = "No picture"; img.replaceWith(d); };
+    if (!id || img.src.startsWith("data:")) return noPic();
+    try {
+      const r = data.business_id ? await callTool("product_photo", { business_id: data.business_id, product_id: id, index: n })
+                                 : await callTool("product_photo", { product_id: id, index: n });
+      if (!r.data_url) return noPic();
+      photoData[`${id}:${n}`] = r.data_url;
+      img.src = r.data_url;
+    } catch { noPic(); }
+  }
+
+  // ---- events ----
+  app.addEventListener("click", (e) => {
+    const t = e.target.closest("button");
+    if (!t || t.disabled) return;
+    // places
+    if ("locate" in t.dataset) { useMyLocation(); return; }
+    if (t.dataset.items) { openItems(t.dataset.items, places && places.query); return; }
+    if (t.dataset.map) { selected = selected === t.dataset.map ? "" : t.dataset.map; locError = ""; render(); return; }
+    if (t.dataset.dir) { const b = placeById(t.dataset.dir); if (b) openLink(directions(b)); return; }
+    if (t.dataset.route) { routeFromMe(); return; }
+    if ("backPlaces" in t.dataset) { places = backTo; backTo = null; data = null; render(); return; }
+    if ("everything" in t.dataset) {
+      callTool("show_items", { business_id: data.business_id, tool: data.tool }).then(show).catch((err) => { error = err.message; render(); });
+      return;
+    }
+    // items
+    if (t.dataset.photo) { photoAt = { ...photoAt, [t.dataset.photo]: Number(t.dataset.n) }; render(); return; }
+    if (t.dataset.qty) {
+      const max = Math.min(20, Number(t.dataset.max || 20));
+      const q = Math.max(0, Math.min(max, (cart[t.dataset.qty] || 0) + Number(t.dataset.d)));
+      cart = { ...cart, [t.dataset.qty]: q };
+      if (!cartTotal().count) step = "pick";
+      render();
+    } else if (t.dataset.open) openLink(t.dataset.open);
+    else if (t.dataset.ask) ask(`Tell me more about "${t.dataset.ask}" from ${data.business}.`);
+    else if ("all" in t.dataset) { showAll = !showAll; render(); }
+    else if ("review" in t.dataset) { step = "review"; error = ""; render(); }
+    else if ("back" in t.dataset) { step = "pick"; error = ""; render(); }
+    else if ("check" in t.dataset) checkStatus(true);
+  });
+  app.addEventListener("input", (e) => {
+    if (e.target.name === "where") where = e.target.value;
+    else if (e.target.name in form) form[e.target.name] = e.target.value;
+  });
+  app.addEventListener("change", (e) => {
+    const sel = e.target.closest && e.target.closest("select[data-opt]");
+    if (!sel) return;
+    const id = sel.dataset.opt, i = byId(id);
+    const current = Object.fromEntries(axes(i).map((a, n) => [a, variantOf(i).split("/")[n]]));
+    chosen = { ...chosen, [id]: { ...current, [sel.dataset.axis]: sel.value } };
+    render();
+  });
+  app.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (e.target.id !== "where") { sendOrder(); return; }
+    if (!where.trim()) { locError = "Type a street, area or city."; render(); return; }
+    searchNear({ location: where.trim() });
+  });
+
+  // Through the business's own MCP server the order tools are called directly; through the shared
+  // Oasis directory (show_items) they go through call_business_tool.
+  function orderTool(name, inputs, confirmed) {
+    if (data.business_id) return callTool("call_business_tool", { business_id: data.business_id, tool: name, inputs, user_confirmed: confirmed });
+    return callTool(name, confirmed ? { ...inputs, user_confirmed: true } : inputs);
+  }
+
+  async function sendOrder() {
+    if (busy) return;
+    busy = true; error = ""; render();
+    const lines = Object.entries(cart).filter(([, q]) => q).map(([k, q]) => {
+      const [id, variant] = splitKey(k);
+      const i = byId(id);
+      const values = variant ? variant.split("/") : [];
+      return { id, quantity: q, ...(variant ? { options: Object.fromEntries(axes(i).map((a, n) => [a, values[n]])) } : {}) };
+    });
+    try {
+      // The customer pressed Send order on this summary: that is their confirmation.
+      const r = await orderTool("request_order", { items: lines, ...form }, true);
+      order = { ...r, status: r.status || "pending", owner_note: "" };
+      step = "pick";
+      polls = 0; schedulePoll();
+    } catch (err) { error = err.message; }
+    busy = false; render();
+  }
+
+  let polls = 0, timer = null;
+  function schedulePoll() {
+    clearTimeout(timer);
+    if (order && order.status === "pending" && polls < 40) timer = setTimeout(() => { polls++; checkStatus(false); }, 15000);
+  }
+  async function checkStatus(byHand) {
+    if (!order) return;
+    if (byHand) { busy = true; error = ""; render(); }
+    try {
+      const s = await orderTool("get_order_status", { order_id: order.order_id, status_token: order.status_token }, false);
+      order = { ...order, status: s.status, owner_note: s.owner_note || "" };
+    } catch (err) { if (byHand) error = err.message; }
+    busy = false; render(); schedulePoll();
+  }
+
+  // ---- start: the MCP Apps handshake ----
+  request("ui/initialize", { appInfo: { name: "oasis-items", version: "2.0.0" }, appCapabilities: {}, protocolVersion: PROTOCOL })
+    .then((r) => { connected = true; applyContext(r && r.hostContext); notify("ui/notifications/initialized", {}); })
+    .catch(() => undefined);
+
+  // Older ChatGPT bridge: the result is on window.openai.toolOutput.
+  const fromOpenAI = () => { if (!connected && window.openai && window.openai.toolOutput && !data) { applyContext({ theme: window.openai.theme }); show(window.openai.toolOutput); } };
+  window.addEventListener("openai:set_globals", fromOpenAI);
+  setTimeout(fromOpenAI, 300);
+})();
+</script>
+</body>
+</html>

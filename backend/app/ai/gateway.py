@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .. import db, vault
-from .providers import Completion, ProviderConfig, ProviderError, complete, parse_json
+from .providers import Completion, Embeddings, ProviderConfig, ProviderError, complete, embed as _embed, parse_json
 
 TASKS: dict[str, dict[str, Any]] = {
     "page_analysis": {
@@ -42,6 +42,12 @@ TASKS: dict[str, dict[str, Any]] = {
         "label": "Owner assistant",
         "description": "General requests from the owner app through POST /api/ai/complete.",
         "max_tokens": 4000,
+    },
+    "search_embeddings": {
+        "label": "Search (embeddings)",
+        "description": "An embedding model (e.g. qwen3-embedding on local Ollama) for finding businesses and items by meaning. Off: keyword search only.",
+        "max_tokens": 0,
+        "embeddings": True,  # never falls back to the default route: a chat model can't embed
     },
 }
 # Tasks a signed-in user may call directly through /api/ai/complete. The rest run server-side only.
@@ -79,7 +85,7 @@ def resolve(task: str) -> Route:
         route = routes.get(task)
         if route is not None and not route["enabled"]:
             raise AINotConfigured(f"The admin has switched off the '{task}' task")
-        if route is None or not route["provider_id"]:
+        if (route is None or not route["provider_id"]) and not TASKS[task].get("embeddings"):
             route = routes.get("default")
         if route is None or not route["provider_id"]:
             raise AINotConfigured("No AI provider is set up yet. An admin can add one in Admin → AI providers.")
@@ -162,6 +168,28 @@ async def run(
                     int((time.monotonic() - started) * 1000),
                     db.now(),
                 ),
+            )
+
+
+async def embed(texts: list[str], task: str = "search_embeddings", route: Route | None = None) -> list[list[float]]:
+    """Vectors for texts through the admin's embedding route, logged like every AI call."""
+    route = route or resolve(task)
+    started = time.monotonic()
+    result: Embeddings | None = None
+    error: str | None = None
+    try:
+        result = await _embed(route.config, texts)
+        return result.vectors
+    except ProviderError as exc:
+        error = str(exc)
+        raise
+    finally:
+        with db.session() as conn:
+            conn.execute(
+                "INSERT INTO ai_calls (task, provider_id, provider_kind, model, ok, error, input_tokens, latency_ms, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (task, route.provider_id, route.config.kind, route.config.model, int(error is None), error,
+                 result.input_tokens if result else None, int((time.monotonic() - started) * 1000), db.now()),
             )
 
 

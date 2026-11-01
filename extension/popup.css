@@ -40,7 +40,7 @@ button {
 }
 button:hover { background: var(--hover); }
 button.primary { background: var(--blue); border-color: var(--blue); color: #fff; flex: 1; }
-button.primary:hover { background: #0077d4; }
+button.primary:hover { background: #0a6f61; }
 button.secondary { flex: 1; }
 button.link { border: 0; background: none; padding: 0; color: var(--muted); }
 button.link:hover { color: var(--text); background: none; }

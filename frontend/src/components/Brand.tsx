@@ -31,7 +31,7 @@ export function OasisLogo({ className, size = "md", mcp = false }: { className?:
     <span className={cx("inline-flex items-center gap-2 text-stone-900", className)}>
       <OasisMark className={s.mark} />
       <span className={cx("leading-none font-semibold tracking-[-0.03em]", s.text)}>oasis</span>
-      {mcp && <span className="rounded-full border border-brand-600 px-1.5 py-px text-[10px] font-semibold tracking-wider text-brand-700">MCP</span>}
+      {mcp && <span className="rounded-full border border-brand-600 px-1.5 py-px text-[11px] font-semibold tracking-wider text-brand-700">MCP</span>}
     </span>
   );
 }

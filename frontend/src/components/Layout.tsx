@@ -153,7 +153,7 @@ function Sidebar({ workspaces, admin, onNavigate }: { workspaces: Workspace[]; a
                 <Icon className="size-4 shrink-0" />
                 <span className="truncate">{w.name}</span>
                 {w.pending_orders > 0 && (
-                  <span className="ml-auto rounded-full bg-danger-dot px-1.5 text-[11px] leading-4 font-semibold text-white" title={`${w.pending_orders} new order(s)`}>
+                  <span className="ml-auto rounded-full bg-danger-dot px-1.5 text-[12px] leading-4 font-semibold text-white" title={`${w.pending_orders} new order(s)`}>
                     {w.pending_orders}
                   </span>
                 )}

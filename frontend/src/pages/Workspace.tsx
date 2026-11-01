@@ -29,6 +29,7 @@ import { ProposalBanners, ToolsPanel } from "../components/ToolsPanel";
 import { AlertsBanner } from "../components/AlertsBanner";
 import { LivePanel } from "../components/LivePanel";
 import { OrdersPanel } from "../components/OrdersPanel";
+import { ProductsPanel } from "../components/ProductsPanel";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, PageLoader } from "../components/ui";
 import { PageTitle } from "../components/Layout";
 
@@ -237,6 +238,39 @@ function CrawlPanel({
     }
   };
 
+  const setCrawl = async (on: boolean) => {
+    setError("");
+    setBusy("switch");
+    try {
+      await api(`/api/workspaces/${workspace.id}`, { method: "PATCH", json: { crawl_enabled: on } });
+      onChange();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  if (!workspace.crawl_enabled) {
+    return (
+      <Card>
+        <CardHeader
+          title="Reading your website is off"
+          description="Oasis doesn't visit your pages. Tools come from recordings you make with the Oasis Recorder extension and import under Your tools."
+          action={
+            <Button variant="secondary" onClick={() => setCrawl(true)} loading={busy === "switch"}>
+              <Globe className="size-4" /> Switch on
+            </Button>
+          }
+        />
+        {error && (
+          <div className="px-5 pb-4">
+            <ErrorNote>{error}</ErrorNote>
+          </div>
+        )}
+      </Card>
+    );
+  }
   if (!workspace.website_url) {
     return (
       <Card>
@@ -285,6 +319,9 @@ function CrawlPanel({
               )}
               <Button variant="secondary" onClick={() => act("crawl")} loading={busy === "crawl"} disabled={active}>
                 <RefreshCw className="size-4" /> Read again
+              </Button>
+              <Button variant="ghost" onClick={() => setCrawl(false)} loading={busy === "switch"} disabled={active} title="Stop Oasis from reading your website">
+                Switch off
               </Button>
             </div>
           }
@@ -519,6 +556,8 @@ export function WorkspacePage() {
             website_url: workspace.website_url,
             test_url: workspace.test_url ?? "",
             description: workspace.description,
+            crawl_enabled: workspace.crawl_enabled,
+            shop_template: workspace.shop_template,
           }}
           submitLabel="Save changes"
           onSubmit={save}
@@ -530,6 +569,7 @@ export function WorkspacePage() {
           <ErrorNote>{actionError}</ErrorNote>
           <AlertsBanner businessId={workspace.id} alerts={alerts} onSeen={load} />
           <ProposalBanners businessId={workspace.id} proposals={proposals} />
+          {workspace.shop_template && <ProductsPanel workspace={workspace} onChange={load} />}
           <ToolsPanel businessId={workspace.id} tools={tools} onChange={load} />
           <OrdersPanel businessId={workspace.id} onChange={load} />
           {liveInfo && (
@@ -542,8 +582,10 @@ export function WorkspacePage() {
               }}
             />
           )}
-          <CrawlPanel workspace={workspace} run={run} recordings={recordings} toolNames={new Set(tools.map((t) => t.name))} onChange={load} onRecord={setRecordTarget} />
-          <RecordingsPanel
+          {!workspace.shop_template && (
+            <CrawlPanel workspace={workspace} run={run} recordings={recordings} toolNames={new Set(tools.map((t) => t.name))} onChange={load} onRecord={setRecordTarget} />
+          )}
+          {!workspace.shop_template && <RecordingsPanel
             businessId={workspace.id}
             recordings={recordings}
             onRecord={() => setRecordTarget("new")}
@@ -555,7 +597,7 @@ export function WorkspacePage() {
                 setActionError((e as Error).message);
               }
             }}
-          />
+          />}
         </div>
       )}
       {recordTarget && (

@@ -1,14 +1,15 @@
 // Runs in every page and frame, but stays asleep unless this tab is being recorded.
-// - In the recording tab: reports clicks, typing, choices and submits to the background
-//   worker, and shows the owner's step panel (top frame only).
+// - In the recording tab: reports clicks, typing, choices and submits to the background worker,
+//   and shows the owner's step panel (top frame only, in its own shadow root). Nothing else in
+//   the page is added or changed.
 // - On Oasis's /extension/connect page: passes the signed-in session to the extension.
 (() => {
   if (window.__agentReadyRecorder) return;
   window.__agentReadyRecorder = true;
 
   const HOST_ID = "agentready-recorder";
-  const SHOT_STYLE_ID = "agentready-shot-style";
   const isTop = window.top === window;
+  const inPanel = (el) => !!(el && el.closest && el.closest("#" + HOST_ID));
 
   const send = (type, data = {}) =>
     new Promise((resolve) => {
@@ -37,7 +38,6 @@
 
   // --- recording -------------------------------------------------------------------------
   const clean = (s) => (s || "").replace(/\s+/g, " ").trim();
-  const inPanel = (el) => !!(el && el.closest && el.closest("#" + HOST_ID));
   const quote = (s) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const generatedId = (id) => /\d{4,}|[a-f0-9]{10,}|^:r|^(ember|react|radix|headlessui|mui)/i.test(id);
   const unique = (sel) => {
@@ -104,10 +104,7 @@
     };
   }
 
-  async function report(type, el, extra = {}) {
-    const reply = await send("action", { action: { type, ...describe(el), ...extra } });
-    if (reply?.personal) el.setAttribute("data-agentready-personal", "1"); // covered in screenshots
-  }
+  const report = (type, el, extra = {}) => send("action", { action: { type, ...describe(el), ...extra } });
 
   const CLICKABLE =
     "button, a, [role=button], [role=link], [role=option], [role=tab], [role=menuitem], [role=gridcell], " +
@@ -164,16 +161,6 @@
     );
   }
 
-  // --- screenshots: hide the panel, cover personal fields ----------------------------------
-  const SHOT_CSS = `
-    #${HOST_ID} { display: none !important; }
-    input[type=password], input[type=email], input[type=tel], input[autocomplete~=name], input[autocomplete^=given],
-    input[autocomplete^=family], input[autocomplete^=cc-], input[autocomplete^=tel], input[autocomplete^=email],
-    input[autocomplete*=address], [data-agentready-personal] {
-      color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important;
-      background: #a8a29e !important;
-    }`;
-
   // --- the owner's panel (top frame only) --------------------------------------------------
   const STYLE = `
     :host { all: initial; }
@@ -195,10 +182,9 @@
       background: #fff; color: #37352f; }
     button.b:hover { background: rgba(55,53,47,.06); }
     button.primary { background: #0d8a78; border-color: #0d8a78; color: #fff; }
-    button.primary:hover { background: #0077d4; }
+    button.primary:hover { background: #0a6f61; }
     button.link { flex: 0 0 auto; white-space: nowrap; border: 0; background: none; color: #787774; padding-left: 0; }
     .hint { color: #787774; font-size: 12px; margin-top: 8px; }
-    .done a { color: #0d8a78; font-weight: 600; }
     .hidden { display: none; }`;
 
   let panel = null;
@@ -226,7 +212,7 @@
         </div>
       </div>`;
     document.documentElement.appendChild(host);
-    const $ = (s) => root.querySelector(s);
+    const $ = (sel) => root.querySelector(sel);
     const note = $("textarea");
     let timer = null;
     note.addEventListener("input", () => {
@@ -267,19 +253,15 @@
     const { $ } = panel;
     $(".live").classList.add("hidden");
     $(".dot").style.background = msg.status === "saved" ? "#0f7b6c" : "#eb5757";
-    $(".title").textContent = msg.status === "saved" ? "Recording saved" : "Upload failed";
+    $(".dot").style.animation = "none";
+    $(".title").textContent = msg.status === "saved" ? "Recording saved" : "Couldn't save the file";
     const done = $(".done");
     done.classList.remove("hidden");
-    done.textContent = "";
     if (msg.status === "saved") {
-      const a = document.createElement("a");
-      a.href = msg.url;
-      a.target = "_blank";
-      a.rel = "noreferrer";
-      a.textContent = "Continue in Oasis →";
-      done.append("Passwords and personal details were masked. ", a);
+      const name = String(msg.filename || "").split("/").pop();
+      done.textContent = `Saved to Downloads as ${name}. Passwords and personal details were masked. In Oasis, open your workspace → Your tools → Import recording.`;
     } else {
-      done.textContent = `${msg.error || "Could not upload."} Open the extension to try again.`;
+      done.textContent = `${msg.error || "Could not save the file."} Open the extension to try again.`;
     }
   }
 
@@ -308,18 +290,8 @@
     }, 1500);
   }
 
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg.type === "prepare-shot") {
-      if (!document.getElementById(SHOT_STYLE_ID) && document.documentElement) {
-        const style = document.createElement("style");
-        style.id = SHOT_STYLE_ID;
-        style.textContent = SHOT_CSS;
-        document.documentElement.appendChild(style);
-      }
-      sendResponse(true);
-    } else if (msg.type === "after-shot") {
-      document.getElementById(SHOT_STYLE_ID)?.remove();
-    } else if (msg.type === "saved" && isTop) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === "saved" && isTop) {
       clearInterval(tick);
       showDone(msg);
     } else if (msg.type === "discarded" && isTop) {

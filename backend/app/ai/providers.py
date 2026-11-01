@@ -8,6 +8,7 @@ Messages arrive in one neutral shape: {"role": "user"|"assistant", "content": [p
 with parts {"type": "text", "text": ...} or {"type": "image", "media_type": ..., "data": <base64>}.
 """
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass, field
@@ -181,6 +182,50 @@ async def _chat_completions(cfg: ProviderConfig, system: str, messages: list[dic
         output_tokens=usage.get("completion_tokens"),
         raw_stop=choice.get("finish_reason"),
     )
+
+
+@dataclass
+class Embeddings:
+    vectors: list[list[float]]
+    input_tokens: int | None = None
+
+
+_clients: dict[int, httpx.AsyncClient] = {}
+
+
+def _embed_client() -> httpx.AsyncClient:
+    """One client per event loop: a search embeds a query on every request, and a new client
+    (its TLS setup) costs more than the embedding itself."""
+    loop = id(asyncio.get_running_loop())
+    client = _clients.get(loop)
+    if client is None or client.is_closed:
+        client = _clients[loop] = httpx.AsyncClient(timeout=60.0)
+    return client
+
+
+async def embed(cfg: ProviderConfig, texts: list[str]) -> Embeddings:
+    """Vectors for texts, in the OpenAI /embeddings format (OpenAI, Ollama, LM Studio, most gateways)."""
+    if cfg.kind not in ("openai", "openai_compatible"):
+        raise ProviderError("This provider has no embeddings. Choose an OpenAI or OpenAI-compatible provider (e.g. local Ollama).")
+    base = (cfg.base_url or "https://api.openai.com/v1").rstrip("/")
+    headers = {"content-type": "application/json"}
+    if cfg.api_key:
+        headers["authorization"] = f"Bearer {cfg.api_key}"
+    try:
+        resp = await _embed_client().post(f"{base}/embeddings", headers=headers, json={"model": cfg.model, "input": texts})
+    except httpx.HTTPError as exc:
+        raise ProviderError(f"Could not reach {base}: {exc.__class__.__name__}") from exc
+    if resp.status_code >= 400:
+        raise ProviderError(f"Provider error {resp.status_code}: {_error_message(resp)}")
+    data = resp.json()
+    try:
+        rows = sorted(data["data"], key=lambda r: r.get("index", 0))
+        vectors = [[float(x) for x in r["embedding"]] for r in rows]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProviderError("The provider returned an unexpected embeddings shape") from exc
+    if len(vectors) != len(texts):
+        raise ProviderError("The provider returned the wrong number of embeddings")
+    return Embeddings(vectors=vectors, input_tokens=(data.get("usage") or {}).get("prompt_tokens"))
 
 
 def _error_message(resp: httpx.Response) -> str:

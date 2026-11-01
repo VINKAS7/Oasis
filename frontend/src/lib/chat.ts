@@ -61,9 +61,24 @@ export interface OrderDetails {
   note: string;
 }
 
+/** A cart line's key: the item id, plus the chosen variant for items with options ("prd_1::M/Black"). */
+export const cartKey = (id: string, variant = "") => (variant ? `${id}::${variant}` : id);
+
+export function splitCartKey(key: string): { id: string; variant: string } {
+  const at = key.indexOf("::");
+  return at < 0 ? { id: key, variant: "" } : { id: key.slice(0, at), variant: key.slice(at + 2) };
+}
+
 /** Sends the order the visitor reviewed. Their click on Send order is the confirmation. */
 export function sendOrder(c: ChatCatalog, details: OrderDetails): Promise<ChatOrder> {
-  const items = Object.entries(c.cart).filter(([, q]) => q > 0).map(([id, quantity]) => ({ id, quantity }));
+  const items = Object.entries(c.cart)
+    .filter(([, q]) => q > 0)
+    .map(([key, quantity]) => {
+      const { id, variant } = splitCartKey(key);
+      const axes = Object.keys(c.items.find((i) => i.id === id)?.options ?? {});
+      const values = variant ? variant.split("/") : [];
+      return { id, quantity, ...(variant ? { options: Object.fromEntries(axes.map((a, n) => [a, values[n] ?? ""])) } : {}) };
+    });
   return api<ChatOrder>("/api/chat/order", { method: "POST", json: { business_id: c.business_id, items, ...details } });
 }
 

@@ -91,7 +91,7 @@ function LocationPill({ place, onChange }: { place: Place | null; onChange: (p: 
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cx(
-          "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] transition-colors",
+          "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[14px] transition-colors",
           place ? "border-brand-100 bg-brand-50 text-brand-800" : "border-stone-200 text-stone-500 hover:bg-hover",
         )}
       >
@@ -127,7 +127,7 @@ function LocationPill({ place, onChange }: { place: Place | null; onChange: (p: 
                 Forget my location
               </button>
             )}
-            <p className="mt-2 text-[11px] leading-snug text-stone-400">Used only to search nearby places, never stored on our side.</p>
+            <p className="mt-2 text-[12px] leading-snug text-stone-400">Used only to search nearby places, never stored on our side.</p>
           </div>
         </>
       )}

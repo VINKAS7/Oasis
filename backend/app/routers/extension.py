@@ -50,5 +50,5 @@ def download(_: User = Depends(current_user)) -> Response:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for path in sorted(EXTENSION_DIR.rglob("*")):
             if path.is_file():
-                z.write(path, f"agentready-recorder/{path.relative_to(EXTENSION_DIR).as_posix()}")
-    return Response(buf.getvalue(), media_type="application/zip", headers={"content-disposition": 'attachment; filename="agentready-recorder.zip"'})
+                z.write(path, f"oasis-recorder/{path.relative_to(EXTENSION_DIR).as_posix()}")
+    return Response(buf.getvalue(), media_type="application/zip", headers={"content-disposition": 'attachment; filename="oasis-recorder.zip"'})

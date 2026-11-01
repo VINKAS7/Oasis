@@ -87,14 +87,18 @@ export function ExtensionPage() {
       Open <code className="rounded bg-stone-100 px-1">chrome://extensions</code> and switch on <b>Developer mode</b> (top right).
     </>,
     <>
-      Click <b>Load unpacked</b> and choose the unzipped <code className="rounded bg-stone-100 px-1">agentready-recorder</code> folder.
+      Click <b>Load unpacked</b> and choose the unzipped <code className="rounded bg-stone-100 px-1">oasis-recorder</code> folder.
     </>,
     <>
-      Click the extension's icon (pin it from the puzzle-piece menu) and press <b>Log in</b>. This website connects it to your account.
+      Click the extension's icon (pin it from the puzzle-piece menu). Logging in is optional: it lists your workspaces and the flows each one still needs.
     </>,
     <>
-      Choose a workspace and a flow, press <b>Start recording</b>, and do the task like a customer would. Press <b>Finish</b> in the panel on the page; the
-      recording appears in your workspace.
+      Say what you're recording, press <b>Start recording</b>, and do the task like a customer would. Press <b>Next step</b> in the panel on the page after each step, and <b>Finish</b> at the end: the
+      recording is saved as a file in Downloads (oasis-recordings).
+    </>,
+    <>
+      In your workspace, under Your tools, press <b>Import recording</b> and choose the file. Oasis runs a security check and builds the tool for you to
+      approve.
     </>,
   ];
   return (
@@ -110,7 +114,8 @@ export function ExtensionPage() {
       </ol>
       <div className="mt-8 rounded-md bg-soft-gray px-4 py-3 text-sm text-stone-700">
         While recording, Chrome shows “Oasis Recorder started debugging this browser”: that is how the extension sees the messages your website sends
-        to its server. Passwords and personal details are masked before anything leaves your browser, and again on our server. The extension talks to{" "}
+        to its server. It only watches the requests; it never changes them. If a site still misbehaves, switch off <b>Capture network requests</b> before you
+        start. Passwords and personal details are masked before the file is saved, and again when you import it. For logging in, the extension talks to{" "}
         <code className="rounded bg-white px-1">{window.location.origin}</code>; if that's not its default (http://localhost:5173), set it under the extension's
         Settings.
       </div>

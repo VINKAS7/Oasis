@@ -61,6 +61,14 @@ async def current_user(request: Request) -> User:
     return user
 
 
+async def optional_user(request: Request) -> "User | None":
+    """The signed-in user, or None (public pages that show owners a little more)."""
+    try:
+        return await current_user(request)
+    except HTTPException:
+        return None
+
+
 async def require_admin(user: User = Depends(current_user)) -> User:
     if not user.is_admin:
         raise HTTPException(403, "Admins only")

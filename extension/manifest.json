@@ -1,21 +1,48 @@
 {
   "manifest_version": 3,
   "name": "Oasis Recorder",
-  "version": "0.1.0",
-  "description": "Record a flow on your own website once (a booking, order, enquiry, sign-up...), so Oasis can turn it into a tool for AI assistants.",
-  "permissions": ["storage", "unlimitedStorage", "tabs", "debugger", "webNavigation"],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js", "type": "module" },
+  "version": "0.2.0",
+  "description": "Record a flow on your own website once (a booking, order, enquiry, sign-up...) and save it as a file you import in Oasis, which turns it into a tool for AI assistants.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "tabs",
+    "debugger",
+    "webNavigation",
+    "downloads",
+    "scripting",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "action": {
     "default_title": "Oasis Recorder",
     "default_popup": "popup.html",
-    "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
-  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "all_frames": true,
       "run_at": "document_start"
     }

@@ -9,10 +9,10 @@ from urllib.parse import urljoin, urlsplit
 from .. import db
 from ..crawler import safety
 from ..recorder import store as rec_store
-from ..recorder.clean import MASK, key_is_secret
+from ..recorder.clean import MASK, is_noise, key_is_secret
 from ..registry import rules
 
-KINDS = {"http_request", "browser_replay", "page_extract", "item_list", "owner_data"}
+KINDS = {"http_request", "browser_replay", "page_extract", "item_list", "owner_data", "shop_catalog"}
 STEP_TYPES = {"goto", "fill", "select", "check", "uncheck", "click", "press", "submit"}
 METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 RATE_LIMITS = {"read_only": 60, "booking": 10, "personal_data": 10, "payment": 3}  # calls per minute
@@ -34,7 +34,8 @@ def allowed_hosts(business: dict[str, Any], created_from: str) -> set[str]:
         if r and r["file_path"]:
             doc = rec_store.read(r["file_path"])
             for s in doc["steps"]:
-                for u in [s.get("url", ""), *(q["url"] for q in s["requests"])]:
+                # Tracking, ads and static files never count as hosts a tool may contact.
+                for u in [s.get("url", ""), *(q["url"] for q in s["requests"] if not is_noise(q["url"], (q.get("response") or {}).get("content_type", ""), q.get("body")))]:
                     if u.startswith("http"):
                         hosts.add(urlsplit(u).hostname)
     return {h for h in hosts if h}
@@ -44,6 +45,7 @@ def _urls(runner: dict[str, Any], site: str) -> list[str]:
     urls = []
     if runner.get("kind") == "http_request":
         urls.append(urljoin(site, re.sub(r"\{\{.*?\}\}", "x", runner.get("url", ""))))
+        urls += [urljoin(site, re.sub(r"\{\{.*?\}\}", "x", str(lk.get("url", "")))) for lk in rules.lookups(runner)]
     for s in runner.get("steps", []):
         if s.get("type") == "goto":
             urls.append(urljoin(site, s.get("value") or s.get("page") or ""))
@@ -57,6 +59,9 @@ def _literals(runner: dict[str, Any]) -> list[tuple[str, str]]:
     out = [("address", runner.get("url", ""))]
     out += [(f"field {f.get('path')}", str(f.get("value", ""))) for f in runner.get("body_fields", [])]
     out += [(f"step {i}", str(s.get("value", ""))) for i, s in enumerate(runner.get("steps", []), start=1)]
+    for lk in rules.lookups(runner):
+        out += [(f"lookup {lk.get('name')} address", str(lk.get("url", "")))]
+        out += [(f"lookup {lk.get('name')} field {f.get('path')}", str(f.get("value", ""))) for f in lk.get("body_fields", [])]
     return [(w, v) for w, v in out if v and not re.fullmatch(r"\{\{\s*\w+\s*\}\}", v)]
 
 
@@ -98,14 +103,17 @@ def check(version: dict[str, Any], business: dict[str, Any], allow_private: bool
             problems.append(f"step type {s.get('type')}")
         if "javascript:" in str(s.get("selector", "")).lower() or "javascript:" in str(s.get("value", "")).lower():
             problems.append("a javascript: value")
-    if "headers" in runner:
+    if "headers" in runner or any("headers" in lk for lk in rules.lookups(runner)):
         problems.append("custom headers")
+    for lk in rules.lookups(runner):
+        if (lk.get("method") or "GET") not in ("GET", "POST"):
+            problems.append(f"lookup method {lk.get('method')}")
     rule("no_dangerous_powers", not problems,
          "Only sends web requests or replays recorded steps; no files, commands or scripts." if not problems else f"Not allowed: {', '.join(problems)}.")
 
     # No secrets written into the tool
     secrets = []
-    for f in runner.get("body_fields", []):
+    for f in runner.get("body_fields", []) + [f for lk in rules.lookups(runner) for f in lk.get("body_fields", [])]:
         if key_is_secret(f.get("path", "").split(".")[-1]) and not rules.placeholders(str(f.get("value", ""))):
             secrets.append(f"field {f.get('path')}")
     for where, value in _literals(runner):
@@ -122,7 +130,11 @@ def check(version: dict[str, Any], business: dict[str, Any], allow_private: bool
     used = set()
     for _, v in [("address", runner.get("url", ""))] + [(None, str(f.get("value", ""))) for f in runner.get("body_fields", [])] + [(None, str(s.get("value", ""))) for s in runner.get("steps", [])]:
         used |= rules.placeholders(v)
-    missing = used - set(version["input_schema"].get("properties", {}))
+    for lk in rules.lookups(runner):
+        for v in [str(lk.get("url", ""))] + [str(f.get("value", "")) for f in lk.get("body_fields", [])]:
+            used |= rules.placeholders(v)
+    looked_up = {str(lk.get("name", "")) for lk in rules.lookups(runner)}
+    missing = used - set(version["input_schema"].get("properties", {})) - looked_up
     rule("inputs_match", not missing, "Every value the customer gives is declared." if not missing else f"Uses {', '.join(sorted(missing))} without asking for it.")
 
     # Sensitivity label and limits

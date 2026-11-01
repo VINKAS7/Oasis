@@ -114,13 +114,16 @@ export function RecordDialog({
           {mode === "extension" && (
             <>
               <ol className="list-decimal space-y-1.5 pl-5 text-sm text-stone-700">
-                <li>Click the Oasis Recorder icon in Chrome (log in once if it asks).</li>
+                <li>Click the Oasis Recorder icon in Chrome (logging in is optional: it lists your workspaces and their flows).</li>
                 <li>
-                  Choose <b>{workspace.name}</b> and {flow ? <b>{flow.title}</b> : "what you're recording"}, then press <b>Start recording</b>.
+                  Choose {flow ? <b>{flow.title}</b> : "what you're recording"}, then press <b>Start recording</b>.
                 </li>
                 <li>Do the task like a customer would and write one sentence per step in the panel on the page.</li>
                 <li>
-                  Press <b>Finish</b>. The recording appears here, with passwords and personal details masked.
+                  Press <b>Finish</b>. The recording is saved as a file in Downloads, with passwords and personal details masked.
+                </li>
+                <li>
+                  Here in <b>{workspace.name}</b>, under Your tools, press <b>Import recording</b> and choose the file. Oasis checks it and builds the tool for you to approve.
                 </li>
               </ol>
               <Callout tone="yellow">What you do really happens on your site (a booking, order or message). Undo it afterwards in your own system.</Callout>

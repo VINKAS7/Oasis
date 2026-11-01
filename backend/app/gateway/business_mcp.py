@@ -10,18 +10,21 @@ same checks, owner rules, confirmation, signing and logging.
 One MCPServer serves every business: the business comes from the URL of each request."""
 
 import json
-import os
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
-from mcp.server.transport_security import TransportSecuritySettings
 from mcp.shared.exceptions import MCPError
-from mcp.types import INVALID_REQUEST, CallToolResult, ListToolsResult, TextContent, Tool
+from mcp.types import INVALID_REQUEST, CallToolResult, ListToolsResult, TextContent, Tool, ToolAnnotations
 
-from . import service
+from ..config import mcp_security
+from ..shop import catalog as shop_catalog
+from . import apps, service
 
 PATH = "/mcp/b/{business_id}"
 ABOUT = "about_business"
+PHOTO = "product_photo"  # for the cards view only (MCP Apps visibility "app"), not offered to the model
+READ = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
+ACT = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True)
 
 INSTRUCTIONS = """This MCP server belongs to one business on Oasis. Its tools are the business's own, published by the owner and checked by Oasis.
 
@@ -50,9 +53,21 @@ def tools_for(business_id: str) -> list[Tool]:
             title="About this business",
             description="What the business is and offers, address (unless online only), opening hours, phone, website and public signing key.",
             input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+            annotations=READ,
         )
     ]
-    for t in service.list_tools(business_id):
+    listed = service.list_tools(business_id)
+    if any(t.get("shows_as_cards") and t["name"] in ("get_products", "get_menu", "get_services") for t in listed):
+        out.append(Tool(
+            name=PHOTO,
+            title="Product photo",
+            description="A product's photo as a small image, for the cards view when the photo's address can't be loaded.",
+            input_schema={"type": "object", "properties": {"product_id": {"type": "string"}, "index": {"type": "integer", "minimum": 0}},
+                          "required": ["product_id"], "additionalProperties": False},
+            annotations=READ,
+            _meta={"ui": {"visibility": ["app"]}},
+        ))
+    for t in listed:
         schema = dict(t["input_schema"] or {"type": "object", "properties": {}})
         description = t["description"] or t["title"] or t["name"]
         if t["requires_user_confirmation"]:
@@ -63,7 +78,11 @@ def tools_for(business_id: str) -> list[Tool]:
             description += " Takes an action or uses personal details: ask the user first, then call with user_confirmed=true."
         if t["owner_rules"]:
             description += f" Owner rules: {'; '.join(t['owner_rules'])}."
-        out.append(Tool(name=t["name"], title=t["title"], description=description, input_schema=schema))
+        annotations = ACT if t["requires_user_confirmation"] else READ  # ChatGPT and Claude ask before ACT tools
+        if t.get("shows_as_cards"):
+            description += " The user sees the items as cards (with ordering when the business takes orders); reply briefly instead of listing every item."
+        out.append(Tool(name=t["name"], title=t["title"], description=description, input_schema=schema, annotations=annotations,
+                        _meta=apps.ui_meta() if t.get("shows_as_cards") else None))
     return out
 
 
@@ -83,21 +102,22 @@ class BusinessServer(MCPServer):
         try:
             if params.name == ABOUT:
                 return _result({"ok": True, **service.business_info(business_id)})
+            if params.name == PHOTO:
+                url = shop_catalog.photo_data_url(business_id, str(args.get("product_id", "")), int(args.get("index") or 0))
+                return _result({"ok": True, "data_url": url} if url else {"ok": False, "message": "No such photo."}, error=url is None)
             confirmed = args.pop("user_confirmed", False) is True
             return _result(await service.call_tool(business_id, params.name, args, confirmed))
         except service.GatewayError as e:
             return _result({"ok": False, "reason": e.outcome, "message": e.message, **e.extra}, error=True)
 
 
-mcp = BusinessServer(name="Oasis business", title="A business on Oasis", instructions=INSTRUCTIONS, version="0.1.0")
+# extensions: the item cards view (MCP Apps) for the catalog tools.
+mcp = BusinessServer(name="Oasis business", title="A business on Oasis", instructions=INSTRUCTIONS, version="0.1.0", extensions=[apps.extension()])
 
 
 def http_app():
     """Same Host and Origin checks as the shared gateway (DNS-rebinding protection)."""
-    hosts = [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "localhost:*,127.0.0.1:*").split(",") if h.strip()]
-    origins = [o.strip() for o in os.getenv("MCP_ALLOWED_ORIGINS", "http://localhost:*,http://127.0.0.1:*").split(",") if o.strip()]
-    security = TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=hosts, allowed_origins=origins)
-    return mcp.streamable_http_app(streamable_http_path=PATH, transport_security=security, stateless_http=True, json_response=True)
+    return mcp.streamable_http_app(streamable_http_path=PATH, transport_security=mcp_security(), stateless_http=True, json_response=True)
 
 
 def url_for(public_api_url: str, business_id: str) -> str:

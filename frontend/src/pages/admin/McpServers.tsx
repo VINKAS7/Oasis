@@ -93,7 +93,7 @@ export function AdminMcpServers() {
                       )}
                     >
                       {t.name}
-                      {t.sensitivity && t.sensitivity !== "read_only" && <span className="font-sans text-[10px] no-underline">· confirm</span>}
+                      {t.sensitivity && t.sensitivity !== "read_only" && <span className="font-sans text-[11px] no-underline">· confirm</span>}
                     </span>
                   ))}
                   {s.tools.length === 0 && <span className="text-xs text-stone-400">No tools yet</span>}

@@ -13,7 +13,8 @@ from ..config import FILES_DIR
 from ..crawler import safety
 from ..ids import new_id
 from ..recorder import compare as compare_mod
-from ..recorder import session, store
+from ..recorder import scan, session, store
+from ..registry import propose
 from ..recorder.clean import mask_text, snake
 from .workspaces import _owned
 
@@ -91,6 +92,20 @@ def start_recording(business_id: str, body: StartIn, user: User = Depends(curren
     return _row_out(row)
 
 
+def _save_upload(business_id: str, rec_id: str, body: store.UploadRecording, doc: dict, user: User, report: dict | None = None):
+    store.save_screenshots(business_id, rec_id, body, doc)
+    path = store.write(business_id, rec_id, doc)
+    stamp = db.now()
+    with db.session() as conn:
+        conn.execute(
+            "INSERT INTO recordings (id, business_id, flow_name, title, source, status, file_path, steps_count, actions_count,"
+            " requests_count, created_by, uploaded_at, finished_at, scan) VALUES (?, ?, ?, ?, ?, 'finished', ?, ?, ?, ?, ?, ?, ?, ?)",
+            (rec_id, business_id, doc["flow"], doc["title"], doc["source"], path, *store.counts(doc).values(), user.id, stamp, stamp,
+             json.dumps(report) if report else None),
+        )
+        return _row_out(_get(conn, business_id, rec_id))
+
+
 @router.post("/recordings/upload", status_code=201)
 def upload_recording(business_id: str, body: store.UploadRecording, user: User = Depends(current_user)) -> dict:
     with db.session() as conn:
@@ -98,16 +113,26 @@ def upload_recording(business_id: str, body: store.UploadRecording, user: User =
     rec_id = new_id("rec")
     doc = store.from_upload(business_id, rec_id, body)
     _flow(doc["flow"])
-    store.save_screenshots(business_id, rec_id, body, doc)
-    path = store.write(business_id, rec_id, doc)
-    stamp = db.now()
+    return _save_upload(business_id, rec_id, body, doc, user)
+
+
+@router.post("/recordings/import")
+def import_recording(business_id: str, body: store.UploadRecording, user: User = Depends(current_user)) -> dict:
+    """A recording file from the Oasis Recorder extension, imported in Your tools: cleaned again,
+    security-scanned, and when it passes, saved and handed to the AI to build the tool proposal
+    the owner approves. A file that fails the scan is not kept."""
     with db.session() as conn:
-        conn.execute(
-            "INSERT INTO recordings (id, business_id, flow_name, title, source, status, file_path, steps_count, actions_count,"
-            " requests_count, created_by, uploaded_at, finished_at) VALUES (?, ?, ?, ?, ?, 'finished', ?, ?, ?, ?, ?, ?, ?)",
-            (rec_id, business_id, doc["flow"], doc["title"], doc["source"], path, *store.counts(doc).values(), user.id, stamp, stamp),
-        )
-        return _row_out(_get(conn, business_id, rec_id))
+        business = dict(_owned(conn, business_id, user))
+    rec_id = new_id("rec")
+    doc = store.from_upload(business_id, rec_id, body)
+    _flow(doc["flow"])
+    trackers = scan.drop_trackers(doc)
+    report = scan.run(doc, business, scan.raw_header_count(body), trackers)
+    if not report["ok"]:
+        return {"ok": False, "scan": report}
+    recording = _save_upload(business_id, rec_id, body, doc, user, report)
+    proposal_id = propose.start_from_recording(business_id, rec_id, user.id)
+    return {"ok": True, "scan": report, "recording": recording, "proposal_id": proposal_id}
 
 
 @router.get("/recordings/{rec_id}")

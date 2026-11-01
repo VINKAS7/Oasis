@@ -27,7 +27,17 @@ TRACKERS = (
     "facebook.net", "facebook.com/tr", "connect.facebook", "hotjar.com", "hotjar.io", "segment.io", "segment.com",
     "mixpanel.com", "amplitude.com", "sentry.io", "clarity.ms", "bing.com/bat", "tiktok.com", "linkedin.com/px",
     "plausible.io", "matomo", "cookiebot.com", "onetrust.com", "intercom.io", "fullstory.com", "newrelic.com", "nr-data.net",
+    # consent banners, surveys and ads
+    "cookielaw.org", "usercentrics.eu", "didomi.io", "trustarc.com", "qualtrics.com", "adtrafficquality.google",
+    "googlesyndication.com", "googletagservices.com", "criteo.", "adnxs.com", "taboola.com", "outbrain.com", "scorecardresearch.com",
+    "pinterest.com", "google.com/rmkt", "google.com/pagead", "/_sec/",  # ads; Akamai bot-protection sensor
 )
+# Google Analytics 4 served from the site's own domain (data.example.com/g/collect?tid=G-...).
+_GA4 = re.compile(r"/g/collect\b|[?&]tid=G-", re.I)
+# Files a page loads to look right (icons, styles, fonts, scripts): never part of what a tool does.
+STATIC_EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico", ".css", ".js", ".mjs", ".map",
+                     ".woff", ".woff2", ".ttf", ".otf", ".eot")
+STATIC_TYPES = ("image/", "font/", "text/css", "text/javascript", "application/javascript", "application/x-javascript")
 KEPT_RESOURCE_TYPES = {"document", "xhr", "fetch"}
 
 
@@ -54,7 +64,27 @@ def field_is_personal(field: dict[str, Any]) -> bool:
 
 def is_tracker(url: str) -> bool:
     low = url.lower()
-    return any(t in low for t in TRACKERS)
+    return any(t in low for t in TRACKERS) or bool(_GA4.search(url))
+
+
+def _machine_body(body: Any) -> bool:
+    """Analytics or bot-protection traffic told by its body: a Snowplow event ("schema": "iglu:..."),
+    or a single field of scrambled sensor data (long, mostly symbols)."""
+    if not isinstance(body, dict):
+        return False
+    if str(body.get("schema", "")).startswith("iglu:"):
+        return True
+    if len(body) == 1:
+        v = next(iter(body.values()))
+        if isinstance(v, str) and len(v) > 200 and sum(not c.isalnum() and not c.isspace() for c in v) / len(v) > 0.25:
+            return True
+    return False
+
+
+def is_noise(url: str, content_type: str = "", body: Any = None) -> bool:
+    """Tracking, ads, consent banners, bot-protection sensors and static files (icons, styles, fonts, scripts)."""
+    path = urlsplit(url).path.lower()
+    return is_tracker(url) or path.endswith(STATIC_EXTENSIONS) or (content_type or "").lower().startswith(STATIC_TYPES) or _machine_body(body)
 
 
 def mask_text(text: str, known: set[str]) -> str:
@@ -73,6 +103,18 @@ def mask_data(value: Any, known: set[str]) -> Any:
         return {k: (MASK if key_is_sensitive(k) and not isinstance(v, (dict, list)) else mask_data(v, known)) for k, v in value.items()}
     if isinstance(value, list):
         return [mask_data(v, known) for v in value]
+    if isinstance(value, str):
+        return mask_text(value, known)
+    return value
+
+
+def mask_response(value: Any, known: set[str]) -> Any:
+    """What a website answered. Its own data stays readable (station, product and service names);
+    only secrets (tokens, keys), values the customer typed, emails and phone numbers are masked."""
+    if isinstance(value, dict):
+        return {k: (MASK if key_is_secret(k) and not isinstance(v, (dict, list)) else mask_response(v, known)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [mask_response(v, known) for v in value]
     if isinstance(value, str):
         return mask_text(value, known)
     return value

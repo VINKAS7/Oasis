@@ -40,6 +40,53 @@ export interface WorkspaceInput {
   website_url: string;
   test_url: string;
   description: string;
+  /** Oasis reads (crawls) the website. Off: tools come from imported recordings only. */
+  crawl_enabled: boolean;
+  /** An Oasis shop (no website): its template. "" for a business with a website. */
+  shop_template: ShopTemplateKey | "";
+}
+
+// --- Oasis shops ------------------------------------------------------------------------------
+
+export type ShopTemplateKey = "clothing" | "menu" | "services" | "general";
+
+export interface ShopField {
+  key: string;
+  label: string;
+  kind: "text" | "longtext" | "tags" | "number" | "select";
+  hint?: string;
+  choices?: string[];
+}
+
+export interface ShopTemplate {
+  label: string;
+  description: string;
+  item: string;
+  category_label: string;
+  category_examples: string[];
+  fields: ShopField[];
+  variants: { key: string; label: string; suggestions: string[] }[];
+  stock: boolean;
+  when_label: string;
+  order_word: string;
+}
+
+export interface Product {
+  id: string;
+  business_id: string;
+  name: string;
+  description: string;
+  category: string;
+  price_amount: number | null;
+  currency: string;
+  images: string[];
+  image_urls: string[];
+  attributes: Record<string, string | number | string[]>;
+  options: Record<string, string[]>;
+  /** Stock per variant ("M/Black"), or "" for a product without variants. Empty: not tracked. */
+  stock: Record<string, number>;
+  active: boolean;
+  sort: number;
 }
 
 export type CrawlStatus = "queued" | "crawling" | "analyzing" | "done" | "failed";
@@ -155,6 +202,8 @@ export interface Workspace extends Omit<WorkspaceInput, "hours"> {
   /** Takes orders through Oasis's order inbox. */
   accepts_orders: boolean;
   pending_orders: number;
+  /** Oasis reads (crawls) the website. */
+  crawl_enabled: boolean;
 }
 
 // --- order inbox ----------------------------------------------------------------------------
@@ -355,6 +404,22 @@ export interface Recording {
   finished_at: string | null;
   processed: number;
   live_steps?: RecordingStep[];
+  /** The security scan of an imported recording file (JSON). */
+  scan?: string | null;
+}
+
+export interface ScanCheck {
+  name: string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+}
+
+/** POST /recordings/import: the scan, and when it passed, the saved recording and its tool proposal. */
+export interface ImportResult {
+  ok: boolean;
+  scan: { ok: boolean; checks: ScanCheck[] };
+  recording?: Recording;
+  proposal_id?: string;
 }
 
 export interface RecordingDetail extends Recording {
@@ -541,6 +606,8 @@ export interface LiveInfo {
   mcp_url: string;
   /** The business's own MCP server (its tools directly), served while it is live. */
   server_url: string;
+  /** False while the address is localhost: ChatGPT and Claude can't reach it. */
+  public: boolean;
   public_key: string;
   tools: { id: string; name: string; title: string | null; published: boolean; reason: string }[];
   activity: AgentCall[];
@@ -572,6 +639,11 @@ export interface ChatBusiness {
   description: string;
   distance_km?: number;
   open_at_requested_time?: boolean | null;
+  lat?: number | null;
+  lng?: number | null;
+  /** exact: every word matched; similar: found by meaning; name: the query named it; all: no query. */
+  match?: "exact" | "similar" | "name" | "all";
+  matching_items?: { id: string; name: string; price: string }[];
 }
 
 export interface ChatConfirm {
@@ -603,6 +675,13 @@ export interface CatalogItem {
   currency: string;
   image_url: string;
   url: string;
+  /** Oasis shop items: all photos, variant axes and stock per variant ("M/Black"; null = not tracked). */
+  images?: string[];
+  options?: Record<string, string[]>;
+  available?: Record<string, number> | null;
+  /** Options the customer asked for ("black tee" -> {colour: "Black"}): the card opens on them. */
+  preselect?: Record<string, string>;
+  attributes?: Record<string, string | number | string[]>;
 }
 
 export interface ChatOrder {

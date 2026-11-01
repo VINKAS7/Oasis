@@ -14,6 +14,7 @@ from .. import db, settings
 from ..auth import User, current_user
 from ..config import FILES_DIR, GEOCODER_CONTACT, USER_AGENT
 from ..crawler import crawler, safety
+from ..gateway import search_index
 from ..ids import new_business_id
 
 router = APIRouter(prefix="/api", tags=["workspaces"])
@@ -59,6 +60,8 @@ class WorkspaceIn(BaseModel):
     website_url: str = Field(default="", max_length=500)
     test_url: str = Field(default="", max_length=500)
     description: str = Field(default="", max_length=2000)
+    crawl_enabled: bool = True  # read the website automatically; off: tools come from recordings only
+    shop_template: Literal["", "clothing", "menu", "services", "general"] = ""  # an Oasis shop (no website needed)
 
     @field_validator("hours")
     @classmethod
@@ -88,6 +91,8 @@ class WorkspacePatch(BaseModel):
     test_url: str | None = Field(default=None, max_length=500)
     description: str | None = Field(default=None, max_length=2000)
     accepts_orders: bool | None = None  # take orders through Oasis's order inbox
+    crawl_enabled: bool | None = None  # read the website automatically
+    shop_template: Literal["clothing", "menu", "services", "general"] | None = None  # a shop can change template, not stop being a shop
 
     @field_validator("website_url", "test_url")
     @classmethod
@@ -102,6 +107,7 @@ def _business_out(conn, b) -> dict:
     out = db.row(b, ("hours",))
     out["online_only"] = bool(out.get("online_only"))
     out["accepts_orders"] = bool(out.get("accepts_orders"))
+    out["crawl_enabled"] = bool(out.get("crawl_enabled", 1))
     out["pending_orders"] = conn.execute("SELECT COUNT(*) FROM orders WHERE business_id = ? AND status = 'pending'", (b["id"],)).fetchone()[0]
     out.pop("signing_key_enc", None)
     run = conn.execute("SELECT * FROM crawl_runs WHERE business_id = ? ORDER BY id DESC LIMIT 1", (b["id"],)).fetchone()
@@ -114,6 +120,11 @@ def _owned(conn, business_id: str, user: User):
     if b is None or (b["owner_id"] != user.id and not user.is_admin):
         raise HTTPException(404, "Workspace not found")
     return b
+
+
+def _crawl_allowed(b) -> None:
+    if not b["crawl_enabled"]:
+        raise HTTPException(409, "Reading the website is switched off for this workspace. Switch it on, or import recordings in Your tools.")
 
 
 def _check_url(url: str) -> str:
@@ -146,14 +157,16 @@ def create_workspace(body: WorkspaceIn, user: User = Depends(current_user)) -> d
         biz_id = new_business_id(conn, body.name)
         conn.execute(
             "INSERT INTO businesses (id, owner_id, type, category_label, online_only, name, address, lat, lng, phone, hours, website_url,"
-            " test_url, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " test_url, description, crawl_enabled, shop_template, accepts_orders, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 biz_id, user.id, body.type, body.category_label.strip(), int(body.online_only), body.name.strip(), body.address.strip(), body.lat, body.lng,
                 body.phone.strip(), json.dumps({k: v.model_dump() for k, v in body.hours.items()}),
-                body.website_url, body.test_url, body.description.strip(), stamp, stamp,
+                body.website_url, body.test_url, body.description.strip(),
+                int(body.crawl_enabled and not body.shop_template), body.shop_template, int(bool(body.shop_template)), stamp, stamp,
             ),
         )
-    if body.website_url:
+    if body.website_url and body.crawl_enabled and not body.shop_template:
         crawler.start_crawl(biz_id, body.website_url)
     with db.session() as conn:
         return _business_out(conn, _owned(conn, biz_id, user))
@@ -170,7 +183,7 @@ def update_workspace(business_id: str, body: WorkspacePatch, user: User = Depend
     fields = body.model_dump(exclude_unset=True)
     if "hours" in fields:
         fields["hours"] = json.dumps(fields["hours"] or {})
-    for key in ("online_only", "accepts_orders"):
+    for key in ("online_only", "accepts_orders", "crawl_enabled"):
         if key in fields:
             fields[key] = int(bool(fields[key]))
     for key in ("website_url", "test_url"):
@@ -180,6 +193,7 @@ def update_workspace(business_id: str, body: WorkspacePatch, user: User = Depend
         _owned(conn, business_id, user)
     if fields:
         db.update("businesses", business_id, **fields, updated_at=db.now())
+        search_index.schedule(business_id)
     with db.session() as conn:
         return _business_out(conn, _owned(conn, business_id, user))
 
@@ -205,6 +219,7 @@ def start_crawl(business_id: str, user: User = Depends(current_user)) -> dict:
         b = _owned(conn, business_id, user)
     if not b["website_url"]:
         raise HTTPException(400, "Add the website address first")
+    _crawl_allowed(b)
     _check_url(b["website_url"])
     try:
         run_id = crawler.start_crawl(business_id, b["website_url"])
@@ -216,7 +231,7 @@ def start_crawl(business_id: str, user: User = Depends(current_user)) -> dict:
 @router.post("/workspaces/{business_id}/crawls/{run_id}/analyze", status_code=202)
 def reanalyze(business_id: str, run_id: int, user: User = Depends(current_user)) -> dict:
     with db.session() as conn:
-        _owned(conn, business_id, user)
+        _crawl_allowed(_owned(conn, business_id, user))  # the analysis opens the site's pages again
         if not conn.execute("SELECT 1 FROM crawl_runs WHERE id = ? AND business_id = ?", (run_id, business_id)).fetchone():
             raise HTTPException(404, "Crawl not found")
     try:

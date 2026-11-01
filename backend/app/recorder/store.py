@@ -128,7 +128,11 @@ def from_upload(business_id: str, rec_id: str, up: UploadRecording) -> dict[str,
         })
     # Requests second, so personal values typed in any step are known when masking bodies.
     for step, s in zip(steps, up.steps):
-        step["requests"] = [clean.mask_data({k: v for k, v in r.items() if k.lower() not in ("headers", "cookies")}, known) for r in s.requests]
+        step["requests"] = [
+            {**clean.mask_data({k: v for k, v in r.items() if k.lower() not in ("headers", "cookies", "response")}, known),
+             **({"response": clean.mask_response(r["response"], known)} if r.get("response") is not None else {})}
+            for r in s.requests
+        ]
     flow = clean.snake(up.flow)
     return {
         "format": FORMAT,

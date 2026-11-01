@@ -82,9 +82,14 @@ export function ToolPage() {
     }
   };
   const remove = async () => {
-    if (!confirm(`Remove ${tool.name}? AI assistants will no longer see it. Its history is kept.`)) return;
-    await api(`/api/workspaces/${id}/tools/${tid}`, { method: "DELETE" });
-    navigate(`/workspaces/${id}`);
+    const title = current?.title ?? tool.name;
+    if (!confirm(`Delete “${title}”? AI assistants, the customer chat and your MCP server will no longer offer it. Its version history is kept.`)) return;
+    try {
+      await api(`/api/workspaces/${id}/tools/${tid}`, { method: "DELETE" });
+      navigate(`/workspaces/${id}`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
 
   return (
@@ -105,8 +110,8 @@ export function ToolPage() {
         </div>
         <div className="flex items-center gap-4">
           <Toggle checked={tool.enabled} onChange={toggle} label={tool.enabled ? "On" : "Off"} />
-          <Button variant="danger" onClick={remove} title="Remove tool">
-            <Trash2 className="size-4" />
+          <Button variant="danger" onClick={remove} title="Delete this tool">
+            <Trash2 className="size-4" /> Delete tool
           </Button>
         </div>
       </div>

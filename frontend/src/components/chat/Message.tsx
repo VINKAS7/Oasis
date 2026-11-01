@@ -25,7 +25,7 @@ function stepLabel(step: ChatStep): string {
 
 function StepChip({ step }: { step: ChatStep }) {
   return (
-    <div className="flex items-center gap-1.5 text-[13px] text-stone-500">
+    <div className="flex items-center gap-1.5 text-[14px] text-stone-500">
       {!step.done ? (
         <Loader2 className="size-3.5 animate-spin" />
       ) : step.ok ? (

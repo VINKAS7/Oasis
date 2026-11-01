@@ -127,6 +127,21 @@ def decide(business_id: str, prop_id: str, decisions: list[dict[str, Any]]) -> l
     return created
 
 
+def add_platform_tool(conn, business_id: str, tool: dict[str, Any], created_from: str, reason: str) -> tuple[str, int] | None:
+    """A tool Oasis makes itself from data the owner entered (an Oasis shop's products): no AI, no
+    proposal. It still goes through the checks before it is published. None if the name is taken."""
+    if _name_taken(conn, business_id, tool["name"]):
+        return None
+    tool_id, stamp = new_id("tool"), db.now()
+    conn.execute(
+        "INSERT INTO tools (id, business_id, name, enabled, current_version, created_at, updated_at) VALUES (?, ?, ?, 1, NULL, ?, ?)",
+        (tool_id, business_id, tool["name"], stamp, stamp),
+    )
+    version = _add_version(conn, tool_id, tool, created_from, None, reason)
+    conn.execute("UPDATE tools SET current_version = ? WHERE id = ?", (version, tool_id))
+    return tool_id, version
+
+
 def use_version(business_id: str, tool_id: str, version: int) -> None:
     """The owner's switch: roll back (or forward) to any saved version."""
     with db.session() as conn:

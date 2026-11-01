@@ -12,6 +12,7 @@ dependencies = [
     "anthropic>=0.60",
     "python-dotenv>=1.0",
     "mcp>=1.20",
+    "pillow>=13.0.0",
 ]
 
 [tool.uv]

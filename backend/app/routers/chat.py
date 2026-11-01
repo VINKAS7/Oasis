@@ -93,6 +93,7 @@ async def confirm(body: ConfirmIn, request: Request) -> StreamingResponse:
 class OrderLine(BaseModel):
     id: str = Field(min_length=1, max_length=120)
     quantity: int = Field(ge=1, le=20)
+    options: dict[str, str] = Field(default_factory=dict)  # an Oasis shop item's size, colour...
 
 
 class OrderIn(BaseModel):

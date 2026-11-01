@@ -21,7 +21,7 @@ from playwright.async_api import Route, async_playwright
 
 from .. import catalog, db, settings
 from ..config import FILES_DIR, USER_AGENT
-from . import safety
+from . import plain, safety
 from .analyze import analyze_run
 
 log = logging.getLogger("agentready.crawler")
@@ -198,12 +198,24 @@ async def crawl(run_id: int) -> None:
 
         await context.route("**/*", guard)
         page = await context.new_page()
+        # Some sites' bot protection drops headless browsers but serves plain requests from Oasis's
+        # crawler. Then pages are read as plain HTML (no screenshot); once that was needed, the rest
+        # of the run reads that way too, instead of waiting for the browser on every page.
+        plain_only = False
         try:
             while queue and done < max_pages:
                 url, depth = queue.popleft()
                 if robots and not robots.can_fetch(USER_AGENT, url):
                     continue
-                record = await _visit(page, url, depth, timeout_ms, shots_dir, done + 1)
+                record = None if plain_only else await _visit(page, url, depth, timeout_ms, shots_dir, done + 1)
+                if record is None or _blocked(record):
+                    fallback = await plain.fetch(url, depth, allow_private, cfg["crawler.page_timeout_s"])
+                    if not fallback.get("error") or record is None:
+                        if record is not None:
+                            log.info("crawl %s: the browser could not open %s (%s); reading it as plain HTML", run_id, url, record.get("error"))
+                        record, plain_only = fallback, True
+                if record.get("text"):
+                    record["text"] = record["text"][:MAX_TEXT_CHARS]
                 if record.get("final_url") and not safety.same_site(record["final_url"], start_url):
                     record["error"] = f"Redirected off the website to {record['final_url']}"
                     record["links"] = []
@@ -268,6 +280,11 @@ async def _visit(page, url: str, depth: int, timeout_ms: int, shots_dir, n: int)
     except PlaywrightError as exc:
         record["error"] = _friendly(exc)
     return record
+
+
+def _blocked(record: dict) -> bool:
+    """The browser didn't get the page: a network error, or a bot wall's status code."""
+    return bool(record.get("error")) and (not record.get("text") or record.get("status_code") in (403, 429, 503))
 
 
 def _save_page(run_id: int, r: dict) -> None:

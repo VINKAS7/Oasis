@@ -11,8 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from . import db
 from .checks import worker
 from .config import AUTH_URL, FRONTEND_DIST
-from .gateway import business_mcp, mcp_server
-from .routers import admin, ai, chat, extension, live, orders, recordings, tools, workspaces
+from .gateway import business_mcp, landing, mcp_server, search_index
+from .routers import admin, ai, chat, extension, live, orders, recordings, shop, tools, workspaces
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -21,18 +21,22 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 async def lifespan(_: FastAPI):
     db.init_db()
     worker.start()  # tool checks: after every change, and daily
+    search_index.start()  # search by meaning: vectors for live businesses and their items
     # The MCP gateway at /mcp, and each business's own MCP server at /mcp/b/{business_id}.
     async with mcp_server.mcp.session_manager.run(), business_mcp.mcp.session_manager.run():
         yield
 
 
 app = FastAPI(title="Oasis API", version="0.1.0", lifespan=lifespan)
+app.add_middleware(mcp_server.LogMcpRequests)
+app.add_middleware(landing.McpLandingPage)  # a browser visiting /mcp gets the connect page
 app.include_router(workspaces.router)
 app.include_router(recordings.router)
 app.include_router(tools.router)
 app.include_router(extension.router)
 app.include_router(live.router)
 app.include_router(orders.router)
+app.include_router(shop.router)
 
 # The MCP gateway (Part F) and the per-business servers: their routes go first, ahead of the UI's catch-all.
 for route in [*reversed(mcp_server.http_app().routes), *reversed(business_mcp.http_app().routes)]:

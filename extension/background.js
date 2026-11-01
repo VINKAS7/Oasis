@@ -9,7 +9,7 @@
 // The service worker can be stopped by Chrome at any time, so the recording lives in
 // chrome.storage.local and is reloaded on wake-up.
 
-import { cleanAction, isTracker, maskText, maskUrl, parseBody } from "./clean.js";
+import { cleanAction, isNoise, maskText, maskUrl, parseBody } from "./clean.js";
 
 const DEFAULT_APP = "http://localhost:5173";
 const KEPT_TYPES = new Set(["Document", "XHR", "Fetch"]);
@@ -17,7 +17,6 @@ const KEPT_TYPES = new Set(["Document", "XHR", "Fetch"]);
 let rec = null; // the recording in progress (mirrored to storage)
 let loading = null;
 const pending = new Map(); // CDP requestId -> request being captured
-const writeBodies = new Map(); // CDP requestId -> response body of a write request (caught by Fetch)
 let lastShot = 0;
 const shotTimers = {};
 
@@ -33,7 +32,7 @@ function load() {
   loading ??= (async () => {
     const s = await chrome.storage.local.get("rec");
     rec = s.rec || null;
-    if (rec?.status === "recording") {
+    if (rec?.status === "recording" && rec.capture !== false) {
       try {
         await attach(rec.tabId);
       } catch {
@@ -131,19 +130,13 @@ async function attach(tabId) {
     }
     if (!msg.includes("Already attached")) throw e;
   }
+  // Only watch: the recorder never holds, changes or blocks the page's requests, so the site
+  // behaves exactly as it does without recording. Answers are read once each request finishes.
   await chrome.debugger.sendCommand({ tabId }, "Network.enable", { maxPostDataSize: 65536 });
-  // Write requests (the booking POST) pause at the response, so their answer is read before
-  // the page navigates away and the browser forgets it.
-  await chrome.debugger.sendCommand({ tabId }, "Fetch.enable", {
-    patterns: [
-      { resourceType: "XHR", requestStage: "Response" },
-      { resourceType: "Fetch", requestStage: "Response" },
-    ],
-  });
 }
 
 async function detach() {
-  if (!rec) return;
+  if (!rec || rec.capture === false) return;
   try {
     await chrome.debugger.detach({ tabId: rec.tabId });
   } catch {
@@ -167,7 +160,7 @@ function addRequest(p, rawBody, error) {
   };
   if (error) entry.error = error;
   else if (p.status != null) {
-    entry.response = { status: p.status, content_type: p.mimeType || "", body: rawBody != null && /json|text/.test(p.mimeType || "") ? parseBody(rawBody, p.mimeType, k) : null };
+    entry.response = { status: p.status, content_type: p.mimeType || "", body: rawBody != null && /json|text/.test(p.mimeType || "") ? parseBody(rawBody, p.mimeType, k, true) : null };
   }
   const step = rec.steps.find((s) => s.n === p.step) || current();
   step.requests.push(entry);
@@ -175,28 +168,13 @@ function addRequest(p, rawBody, error) {
 }
 
 chrome.debugger.onEvent.addListener(async (source, method, params) => {
+  const target = { tabId: source.tabId };
   await load();
   if (!rec || rec.status !== "recording" || source.tabId !== rec.tabId) return;
-  const target = { tabId: source.tabId };
-
-  if (method === "Fetch.requestPaused") {
-    try {
-      const r = params.request;
-      if (r.method !== "GET" && !isTracker(r.url) && params.networkId) {
-        const res = await chrome.debugger.sendCommand(target, "Fetch.getResponseBody", { requestId: params.requestId });
-        writeBodies.set(params.networkId, res.base64Encoded ? atob(res.body) : res.body);
-      }
-    } catch {
-      /* no body (e.g. a redirect) */
-    } finally {
-      chrome.debugger.sendCommand(target, "Fetch.continueRequest", { requestId: params.requestId }).catch(() => {});
-    }
-    return;
-  }
   if (method === "Network.requestWillBeSent") {
     const r = params.request;
     if (!KEPT_TYPES.has(params.type) || (params.type === "Document" && r.method === "GET")) return;
-    if (!/^https?:/.test(r.url) || isTracker(r.url)) return;
+    if (!/^https?:/.test(r.url) || isNoise(r.url)) return; // tracking, ads, icons, styles, fonts
     pending.set(params.requestId, {
       step: current().n,
       method: r.method,
@@ -211,14 +189,14 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     if (p) {
       p.status = params.response.status;
       p.mimeType = params.response.mimeType;
+      if (isNoise(p.url, p.mimeType)) pending.delete(params.requestId); // a static file after all
     }
   } else if (method === "Network.loadingFinished") {
     const p = pending.get(params.requestId);
     if (!p) return;
     pending.delete(params.requestId);
-    let body = writeBodies.get(params.requestId) ?? null;
-    writeBodies.delete(params.requestId);
-    if (body == null && p.type !== "document" && /json|text/.test(p.mimeType || "")) {
+    let body = null;
+    if (p.type !== "document" && /json|text/.test(p.mimeType || "")) {
       try {
         const res = await chrome.debugger.sendCommand(target, "Network.getResponseBody", { requestId: params.requestId });
         body = res.base64Encoded ? atob(res.body) : res.body;
@@ -279,6 +257,21 @@ function scheduleShot(slot, delay) {
   }, delay);
 }
 
+// For a screenshot: hide the step panel and cover personal fields (by type and autocomplete, and
+// the fields this recording found personal). Applied by Chrome as a user style sheet, so the
+// page's own document is never touched.
+const COVER = "{ color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important; background: #a8a29e !important; }";
+const PERSONAL_FIELDS =
+  "input[type=password], input[type=email], input[type=tel], input[autocomplete~=name], input[autocomplete^=given], " +
+  "input[autocomplete^=family], input[autocomplete^=cc-], input[autocomplete^=tel], input[autocomplete^=email], input[autocomplete*=address]";
+
+function shotCss() {
+  const own = new Set();
+  for (const s of rec.steps) for (const a of s.actions) if (a.personal && a.selector && !a.selector.includes(":has-text")) own.add(a.selector);
+  const cover = [PERSONAL_FIELDS, ...own].map((sel) => `${sel} ${COVER}`);
+  return ["#agentready-recorder { display: none !important; }", ...cover].join("\n");
+}
+
 async function shot() {
   if (!rec || rec.status !== "recording") return;
   const wait = 600 - (Date.now() - lastShot); // Chrome allows two captures a second
@@ -288,15 +281,24 @@ async function shot() {
   const tab = await chrome.tabs.get(rec.tabId).catch(() => null);
   if (!tab || !tab.active) return;
   let dataUrl = null;
+  let css = "";
+  let target = null;
   try {
-    // Hide the panel and cover personal fields in every frame first.
-    await chrome.tabs.sendMessage(rec.tabId, { type: "prepare-shot" }).catch(() => {});
+    // Cover personal fields in every frame first.
+    css = shotCss();
+    // Every frame if possible; a frame Chrome won't style (about:blank, a sandboxed embed) falls
+    // back to the page itself. If even that fails, no screenshot is taken.
+    target = { tabId: rec.tabId, allFrames: true };
+    await chrome.scripting.insertCSS({ target, css, origin: "USER" }).catch(() => {
+      target = { tabId: rec.tabId, frameIds: [0] };
+      return chrome.scripting.insertCSS({ target, css, origin: "USER" });
+    });
     await new Promise((r) => setTimeout(r, 60));
     dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "jpeg", quality: 60 });
   } catch {
-    /* the window is minimised or not focused */
+    /* the window is minimised or not focused, or the page can't be styled (no screenshot then) */
   } finally {
-    chrome.tabs.sendMessage(rec.tabId, { type: "after-shot" }).catch(() => {});
+    if (target) chrome.scripting.removeCSS({ target, css, origin: "USER" }).catch(() => {});
   }
   const after = await chrome.tabs.get(rec.tabId).catch(() => null);
   if (!dataUrl || current() !== step || !after || after.url !== tab.url) return; // the page moved on meanwhile
@@ -307,7 +309,7 @@ async function shot() {
 
 // --- start / finish ----------------------------------------------------------------------
 
-async function start({ workspaceId, workspaceName, flow, title, startUrl, useCurrentTab }) {
+async function start({ workspaceId, workspaceName, flow, title, startUrl, useCurrentTab, capture = true }) {
   await load();
   if (rec?.status === "recording" || rec?.status === "saving") throw new Error("A recording is already running.");
   if (!/^https?:\/\//.test(startUrl || "")) throw new Error("The start page must be a web address.");
@@ -327,15 +329,18 @@ async function start({ workspaceId, workspaceName, flow, title, startUrl, useCur
     currentUrl: startUrl,
     known: [],
     steps: [],
+    capture, // watch the page's network requests (Chrome's debugging interface); off: actions only
   };
   newStep(startUrl, true);
   await save();
-  try {
-    await attach(tab.id);
-  } catch (e) {
-    rec = null;
-    await save();
-    throw e;
+  if (capture) {
+    try {
+      await attach(tab.id);
+    } catch (e) {
+      rec = null;
+      await save();
+      throw e;
+    }
   }
   await chrome.tabs.update(tab.id, { url: startUrl, active: true });
 }
@@ -345,21 +350,54 @@ function tidy(steps) {
   return kept.map((s, i) => ({ ...s, original: s.n, n: i + 1 }));
 }
 
+// The file is handed to chrome.downloads as a Blob URL made by a hidden offscreen page (any size).
+// If that isn't available, a data: URL is used instead, which Chrome caps at 2 MB: above that the
+// file is saved without its step screenshots.
+const MAX_FILE_URL = 1_900_000;
+
+async function blobUrl(text) {
+  if (!(await chrome.offscreen.hasDocument())) {
+    await chrome.offscreen.createDocument({ url: "offscreen.html", reasons: ["BLOBS"], justification: "Save the recording as a file in Downloads." });
+  }
+  const url = await chrome.runtime.sendMessage({ type: "offscreen-blob", text });
+  if (!String(url).startsWith("blob:")) throw new Error("no blob URL");
+  return url;
+}
+
+function fileUrl(doc) {
+  const bytes = new TextEncoder().encode(JSON.stringify(doc, null, 1));
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return `data:application/json;base64,${btoa(bin)}`;
+}
+
+function fileName() {
+  const d = new Date(rec.startedAt);
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  return `oasis-recordings/${rec.flow.replace(/_/g, "-")}-${stamp}.oasis.json`;
+}
+
+// Finish saves the recording as a file in Downloads/oasis-recordings. Nothing is uploaded: the
+// owner imports the file in their workspace (Your tools → Import recording), where Oasis cleans
+// it again, runs a security scan and builds the tool.
 async function finish() {
   await load();
   if (!rec || rec.status !== "recording") return;
   rec.status = "saving";
   await save();
   await detach();
-  const { appUrl } = await settings();
   const steps = tidy(rec.steps);
   const shots = await chrome.storage.local.get(steps.map((s) => `shot:${s.original}`));
-  const doc = {
+  const doc = (withShots) => ({
+    format: "oasis.recording/1",
     flow: rec.flow,
     title: rec.title,
     site: rec.site,
     recorded_at: rec.startedAt,
     source: "extension",
+    workspace_id: rec.workspaceId || "",
+    workspace_name: rec.workspaceName || "",
     steps: steps.map((s) => ({
       n: s.n,
       page: s.page,
@@ -367,20 +405,32 @@ async function finish() {
       owner_note: s.owner_note,
       actions: s.actions,
       requests: s.requests,
-      screenshot_data: shots[`shot:${s.original}`] || null,
+      screenshot_data: (withShots && shots[`shot:${s.original}`]) || null,
     })),
-  };
+  });
   try {
-    const saved = await api(`/api/workspaces/${rec.workspaceId}/recordings/upload`, { method: "POST", body: JSON.stringify(doc) });
+    let url;
+    let screenshots = true;
+    try {
+      url = await blobUrl(JSON.stringify(doc(true), null, 1));
+    } catch {
+      url = fileUrl(doc(true));
+      screenshots = url.length <= MAX_FILE_URL;
+      if (!screenshots) url = fileUrl(doc(false));
+    }
+    const filename = fileName();
+    const downloadId = await chrome.downloads.download({ url, filename, conflictAction: "uniquify", saveAs: false });
+    // The download has its own copy once it starts; then the hidden page (and its Blob) can go.
+    if (url.startsWith("blob:")) setTimeout(() => chrome.offscreen.closeDocument().catch(() => {}), 30_000);
     rec.status = "saved";
-    rec.result = { recordingId: saved.id, url: `${appUrl}/workspaces/${rec.workspaceId}/recordings/${saved.id}` };
+    rec.result = { downloadId, filename, screenshots };
     await clearShots();
   } catch (e) {
     rec.status = "failed";
-    rec.error = e.message;
+    rec.error = e.message || String(e);
   }
   await save();
-  chrome.tabs.sendMessage(rec.tabId, { type: "saved", status: rec.status, url: rec.result?.url, error: rec.error }).catch(() => {});
+  chrome.tabs.sendMessage(rec.tabId, { type: "saved", status: rec.status, filename: rec.result?.filename, error: rec.error }).catch(() => {});
 }
 
 async function discard() {
@@ -397,6 +447,8 @@ async function discard() {
 async function handle(msg, sender) {
   await load();
   const fromRecordingTab = rec?.status === "recording" && sender.tab?.id === rec.tabId;
+  // The step panel lives in the recording tab (content.js).
+  const fromPanel = fromRecordingTab;
 
   switch (msg.type) {
     // from content.js
@@ -417,16 +469,17 @@ async function handle(msg, sender) {
       await save();
       if (["click", "press", "submit"].includes(action.type)) await shot();
       else scheduleShot("action", 600);
-      return { personal: Boolean(action.personal) };
+      return { ok: true };
     }
+    // from the step panel
     case "note":
-      if (fromRecordingTab) {
+      if (fromPanel) {
         current().owner_note = maskText(String(msg.text || "").slice(0, 500), known());
         await save();
       }
       return panelState();
     case "next_step":
-      if (!fromRecordingTab) return null;
+      if (!fromPanel) return null;
       current().owner_note = maskText(String(msg.text || "").slice(0, 500), known());
       await shot();
       newStep(rec.currentUrl, true);
@@ -434,7 +487,7 @@ async function handle(msg, sender) {
       scheduleShot("load", 300);
       return panelState();
     case "finish":
-      if (fromRecordingTab && msg.text) current().owner_note = maskText(String(msg.text).slice(0, 500), known());
+      if (fromPanel && msg.text) current().owner_note = maskText(String(msg.text).slice(0, 500), known());
       finish();
       return { ok: true };
     case "cancel":
@@ -464,20 +517,29 @@ async function handle(msg, sender) {
           steps: rec.steps.length,
           actions: rec.steps.reduce((n, x) => n + x.actions.length, 0),
           requests: rec.steps.reduce((n, x) => n + x.requests.length, 0),
+          workspaceId: rec.workspaceId,
           result: rec.result,
           error: rec.error,
+          capture: rec.capture !== false,
+          // the step in progress
+          step: rec.steps.length ? current().n : 0,
+          note: rec.steps.length ? current().owner_note : "",
+          stepActions: rec.steps.length ? current().actions.length : 0,
         },
       };
     }
     case "context":
       return api("/api/extension/context");
+    case "show-file":
+      if (rec?.result?.downloadId) chrome.downloads.show(rec.result.downloadId);
+      return { ok: true };
     case "start":
       await start(msg.options);
       return { ok: true };
     case "popup-finish":
       await finish();
       return { ok: true };
-    case "retry-upload":
+    case "retry-save":
       if (rec?.status === "failed") {
         rec.status = "recording";
         await finish();

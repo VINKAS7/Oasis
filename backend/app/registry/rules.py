@@ -84,11 +84,33 @@ def job_key(runner: dict[str, Any]) -> str | None:
     return None
 
 
+LOOKUP_NAME = re.compile(r"^[a-z][a-z0-9_]{0,40}$")
+PICK_PATH = re.compile(r"^[\w-]+(\.[\w-]+){0,12}$")
+MAX_LOOKUPS = 3
+
+
+def lookups(runner: dict[str, Any]) -> list[dict[str, Any]]:
+    return [lk for lk in (runner.get("lookups") or []) if isinstance(lk, dict)] if runner.get("kind") == "http_request" else []
+
+
+def graphql_read(runner: dict[str, Any]) -> bool:
+    """A GraphQL request that only reads: a POST whose query is a "query", not a "mutation"."""
+    query = next((str(f.get("value", "")) for f in runner.get("body_fields", []) if f.get("path") == "query"), "")
+    q = query.strip()
+    if q:
+        return (q.startswith("{") or q.startswith("query")) and "mutation" not in q
+    # A persisted query: no query text, the operation is named in the address or operationName.
+    op = next((str(f.get("value", "")) for f in runner.get("body_fields", []) if f.get("path") == "operationName"), "")
+    name = op or urlsplit(str(runner.get("url", ""))).path.rstrip("/").rsplit("/", 1)[-1]
+    return "/graphql" in str(runner.get("url", "")).lower() and name.endswith("Query") and "Mutation" not in name
+
+
 def _floor(tool: dict[str, Any]) -> str:
     """The least sensitive label this tool can honestly carry."""
     runner = tool["runner"]
     level = "read_only"
-    writes = (runner.get("kind") == "http_request" and runner.get("method", "GET") != "GET") or (
+    writes = (runner.get("kind") == "http_request" and runner.get("method", "GET") != "GET" and not graphql_read(runner)) or any(
+        (lk.get("method") or "GET") != "GET" and not graphql_read(lk) for lk in lookups(runner)) or (
         runner.get("kind") == "browser_replay" and any(s.get("type") in ("click", "submit", "press") for s in runner.get("steps", []))
     )
     if writes:
@@ -129,6 +151,8 @@ def normalise(raw: dict[str, Any], personal_names: set[str]) -> dict[str, Any]:
 def _runner_strings(runner: dict[str, Any]) -> list[str]:
     out = [runner.get("url", "")]
     out += [str(f.get("value", "")) for f in runner.get("body_fields", [])]
+    for lk in lookups(runner):
+        out += [str(lk.get("url", ""))] + [str(f.get("value", "")) for f in lk.get("body_fields", [])]
     out += [str(s.get("value", "")) for s in runner.get("steps", [])]
     return out
 
@@ -145,12 +169,39 @@ def check(tool: dict[str, Any], *, site: str, seen_hosts: set[str], seen_request
     if not tool["description_for_ai"]:
         flags.append({"kind": "warning", "message": "The tool has no description for AI assistants."})
 
+    # Lookups: each one names the value it finds; later requests may use it like an input.
+    found: list[str] = []
+    for i, lk in enumerate(lookups(runner)):
+        name = str(lk.get("name", ""))
+        if i >= MAX_LOOKUPS:
+            flags.append({"kind": "blocked", "message": f"At most {MAX_LOOKUPS} lookups per tool."})
+            break
+        if not LOOKUP_NAME.match(name) or name in declared or name in found:
+            flags.append({"kind": "blocked", "message": f"Lookup “{name}” needs a unique snake_case name that isn't an input."})
+        if (lk.get("method") or "GET") not in ("GET", "POST"):
+            flags.append({"kind": "blocked", "message": f"Lookup {name} must only read (GET or POST), not {lk.get('method')}."})
+        if not PICK_PATH.match(str(lk.get("pick", ""))):
+            flags.append({"kind": "blocked", "message": f"Lookup {name} needs a path into its answer, e.g. data.places.0.id."})
+        later = {n for n in (placeholders(str(lk.get("url", ""))) | {p for f in lk.get("body_fields", []) for p in placeholders(str(f.get("value", "")))})} - declared - set(found)
+        if later:
+            flags.append({"kind": "blocked", "message": f"Lookup {name} uses {', '.join(sorted(later))} before it is known."})
+        lk_url = urljoin(site, str(lk.get("url", "")))
+        lk_host = urlsplit(lk_url).hostname or ""
+        if lk_url.startswith("http") and lk_host and lk_host not in seen_hosts and not safety.same_site(lk_url, site):
+            flags.append({"kind": "blocked", "message": f"Lookup {name} contacts {lk_host}, which is neither your website nor part of your recording."})
+        found.append(name)
+
     used = set()
     for text in _runner_strings(runner):
         used |= placeholders(text)
         if MASK in text:
             flags.append({"kind": "blocked", "message": "A masked personal value is written into the tool. Personal details must be inputs the customer gives."})
             break
+    used -= set(found)
+    ids = sorted(n for n in declared if re.search(r"(^|_)ids?$", n))
+    if ids and kind == "http_request":
+        flags.append({"kind": "warning", "message": f"Asks the customer for {', '.join(ids)}. People don't know a website's internal ids; "
+                                                    "a lookup can find them from a name the customer gives."})
     missing = used - declared
     if missing:
         flags.append({"kind": "blocked", "message": f"The tool uses {', '.join(sorted(missing))} but doesn't ask for it."})
@@ -177,7 +228,7 @@ def check(tool: dict[str, Any], *, site: str, seen_hosts: set[str], seen_request
         for src in runner.get("sources", []):
             if not safety.same_site(urljoin(site, src.get("url", "")), site):
                 flags.append({"kind": "blocked", "message": f"Reads {urlsplit(src.get('url', '')).hostname}, which is not your website."})
-    elif kind not in ("page_extract", "owner_data"):
+    elif kind not in ("page_extract", "owner_data", "shop_catalog"):
         flags.append({"kind": "blocked", "message": f"Unknown way of running a tool: {kind}."})
 
     floor = _floor(tool)
@@ -192,9 +243,11 @@ def describe_runner(runner: dict[str, Any]) -> str:
     kind = runner.get("kind")
     if kind == "http_request":
         fixed = [f for f in runner.get("body_fields", []) if not placeholders(str(f.get("value", "")))]
-        pairs = ", ".join("{}={}".format(f["path"], f["value"]) for f in fixed[:4])
+        pairs = ", ".join("{}={}".format(f.get("path", ""), f.get("value", "")) for f in fixed[:4])
         extra = f"; always sends {pairs}" if fixed else ""
-        return f"Sends {runner.get('method', 'GET')} {runner.get('url', '')} directly{extra}."
+        first = "; ".join(f"{lk.get('name')} (from {lk.get('method', 'GET')} {lk.get('url', '')}, at {lk.get('pick', '')})" for lk in lookups(runner))
+        before = f"First looks up {first}. Then sends" if first else "Sends"
+        return f"{before} {runner.get('method', 'GET')} {runner.get('url', '')} directly{extra}."
     if kind == "browser_replay":
         return f"Replays {len(runner.get('steps', []))} recorded steps in a hidden browser with the customer's values."
     if kind == "page_extract":
@@ -204,4 +257,6 @@ def describe_runner(runner: dict[str, Any]) -> str:
         return f"Reads the {runner.get('title', 'list').lower()} on {pages} as items (name, price, picture) customers can pick from."
     if kind == "owner_data":
         return f"Answers from your workspace details ({', '.join(runner.get('fields', []))})."
+    if kind == "shop_catalog":
+        return "Answers from the products in your Oasis shop (photos, prices, sizes and stock); nothing leaves Oasis."
     return "Unknown."

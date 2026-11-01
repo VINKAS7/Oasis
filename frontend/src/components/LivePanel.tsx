@@ -102,14 +102,35 @@ export function LivePanel({ businessId, info, onChange }: { businessId: string; 
             {live ? "Give this address to any AI assistant (MCP, streamable HTTP). It has your tools only:" : "Your address, once published (MCP, streamable HTTP):"}
           </p>
           <CopyText text={info.server_url} />
-          <details className="text-stone-500">
-            <summary className="cursor-pointer">Claude Desktop on this computer</summary>
-            <p className="mt-1">
-              Add this to <code>claude_desktop_config.json</code> and restart Claude:
-            </p>
-            <pre className="mt-1 overflow-x-auto rounded bg-stone-100 p-2 text-xs text-stone-700">{desktopConfig}</pre>
-            <p className="mt-1">On a public server, add the address as a custom connector instead.</p>
-          </details>
+          {info.public ? (
+            <>
+              <details className="text-stone-500">
+                <summary className="cursor-pointer">Add to ChatGPT</summary>
+                <p className="mt-1">
+                  Settings → Apps &amp; Connectors → Advanced settings → turn on Developer mode. Then Create, paste the address above, choose No authentication and
+                  save. In a chat, pick it under + → Developer mode.
+                </p>
+              </details>
+              <details className="text-stone-500">
+                <summary className="cursor-pointer">Add to Claude</summary>
+                <p className="mt-1">Settings → Connectors → Add custom connector, paste the address above and add it. It works in Claude on the web, desktop and mobile.</p>
+              </details>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-stone-500">
+                Only this computer can reach this address. To add it to ChatGPT or Claude, give Oasis a public address (<code>PUBLIC_API_URL</code>) and start it
+                with <code>npm run dev:public</code>.
+              </p>
+              <details className="text-stone-500">
+                <summary className="cursor-pointer">Claude Desktop on this computer</summary>
+                <p className="mt-1">
+                  Add this to <code>claude_desktop_config.json</code> and restart Claude:
+                </p>
+                <pre className="mt-1 overflow-x-auto rounded bg-stone-100 p-2 text-xs text-stone-700">{desktopConfig}</pre>
+              </details>
+            </>
+          )}
           <p className="pt-1 text-xs text-stone-500">
             Assistants connected to the shared Oasis directory find you too: <code>{info.mcp_url}</code>
           </p>

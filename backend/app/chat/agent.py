@@ -36,7 +36,11 @@ SEARCH_TOOLS = {"find_nearby", "search_businesses"}
 # A reply like this before any tool was used means the model skipped the search.
 GAVE_UP = re.compile(r"don.t have (any )?(information|access|details)|no information|not sure|couldn.t find|can.t find|unable to (access|find)|"
                      r"could you (please )?clarify|more details|which (business|website|portfolio|company|shop|restaurant)|please specify", re.I)
+# A reply asking where the visitor is.
+ASKS_PLACE = re.compile(r"(your|the visitor.s) (location|street|area|city|address)|where (you are|are you)|share your", re.I)
 NUDGES = {
+    "location_known": "The visitor's location is already known: {location}. Don't ask for it: call find_nearby with location "
+                      "\"{location}\" and query = what they are looking for.",
     "malformed": "That reply had no text. Answer again as one JSON object: either call a tool or reply to the visitor in words.",
     "search_first": "You haven't used any tool yet. Before saying you don't know, call search_businesses with the key words of the visitor's "
                     "message (or find_nearby if they want something near them).",
@@ -66,9 +70,11 @@ SYSTEM = """You are the assistant on Oasis's public chat. You help people find b
 
 How you work:
 - Each turn, either call exactly one tool or reply to the visitor.
-- "Near me", "nearest", "around here": call find_nearby with the visitor's location. Put the kind of place in type ("restaurant", "cafe", "bike repair"), specific wishes in keywords (["vegetarian"]), and use open_at and day when they ask what is open now or at some time.
-- A business by name or topic, or anything online (a portfolio, an online shop, an agency, a course): call search_businesses with one to three key words, such as the name or "portfolio". This needs no location.
-- If you need the visitor's location and it is unknown, ask them for a street, area or city (unless they named a place in their message).
+- "Near me", "nearest", "around here": call find_nearby with query = what they want in their words ("pizza", "haircut") and location = the visitor's location below, copied exactly (coordinates like "47.55, 7.59" are fine; don't ask again when it is known). Use keywords only for must-haves (["vegetarian"]), and open_at and day when they ask what is open now or at some time.
+- A business by name or topic, or anything online (a portfolio, an online shop, an agency, a course, products like "t-shirts"): call search_businesses with the visitor's key words. It understands meaning, plurals, typos and other languages. This needs no location.
+- If the visitor's location below is unknown and they named no place, still call find_nearby without location: it lists the matching places, just not by distance. Show them, then say they can set their location (the button above the chat) or tell you a street, area or city to sort them nearest first.
+- A message asking for several things ("black t-shirts and a café near me"): handle each part with its own tool call before replying.
+- Calling a catalog tool (products, menu, services): leave its inputs empty to show everything, or put the visitor's own words in search ("t-shirts", "vegan"). Don't invent filters they didn't ask for.
 - For anything about one business (what it is about, menu, prices, hours, projects, booking), call list_business_tools, then call_business_tool with the tool that answers it (an overview or about tool for "what is it about"). Don't stop at the search result's short description when a tool can say more.
 - Never guess a business_id: use one from a tool result or from the list of businesses already found below.
 - Mention only businesses and facts that the tools returned. Never invent places, prices, hours or availability. If nothing was found, say so and suggest a wider radius or another time.
@@ -79,7 +85,7 @@ How you work:
 - Opening hours: read every day. Say which days a place is closed; never say "daily" unless all seven days are open.
 
 Now: {now}.
-Visitor's location: {location}.
+Visitor's location (where they are now; pass it to find_nearby as location): {location}.
 Businesses already found in this chat: {known}.
 
 Tools (arguments must follow each input schema):
@@ -138,6 +144,11 @@ async def _call(session: ClientSession, tool: str, args: dict[str, Any]) -> dict
 def _summary(tool: str, data: dict[str, Any]) -> str:
     if not data.get("ok", True):
         return data.get("message") or "That didn't work."
+    if data.get("need_location"):
+        if "businesses" not in data:  # a place that couldn't be found
+            return "Needs the visitor's location"
+        n = len(data["businesses"]) + len(data.get("online", []))
+        return f"Found {n} place{'s' if n != 1 else ''} (not sorted by distance)" if n else "Nothing found"
     if tool in SEARCH_TOOLS:
         n = data.get("count", len(data.get("businesses", [])))
         return f"Found {n} place{'s' if n != 1 else ''}" if n else "Nothing found"
@@ -187,10 +198,12 @@ async def _step(system: str, convo: list[dict[str, Any]]) -> dict[str, Any]:
     return data
 
 
-def _nudge(reply: str, used: set[str], nudged: set[str]) -> str | None:
+def _nudge(reply: str, used: set[str], nudged: set[str], location: str = "") -> str | None:
     """Which nudge, if any, a reply about to go out needs."""
     if not re.search(r"[^\W\d_]{2}", reply):
         kind = "malformed"
+    elif location and "find_nearby" not in used and ASKS_PLACE.search(reply):
+        kind = "location_known"
     elif not used and GAVE_UP.search(reply):
         kind = "search_first"
     elif used & {"search_businesses", "get_business_info"} and not used & {"find_nearby", "list_business_tools", "call_business_tool"}:
@@ -210,7 +223,8 @@ async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known:
     async with streamable_http_client(CLIENT_MCP_URL) as (read, write, *_):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            tools = (await session.list_tools()).tools
+            # show_items is for assistants that render MCP Apps; this page draws its own cards from call_business_tool.
+            tools = [t for t in (await session.list_tools()).tools if t.name not in ("show_items", "product_photo")]
             names = {t.name for t in tools}
             system = SYSTEM.format(now=_now(), location=location or "unknown (ask the visitor if you need it)", known=_known_text(known), tools=_tools_text(tools))
             convo = _history(messages)
@@ -228,18 +242,31 @@ async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known:
 
             used = {"call_business_tool"} if confirmed else set()  # tools called in this answer
             nudged: set[str] = set()  # each nudge at most once per answer
+            cards: tuple[str, str] | None = None  # (business, tool): a business's only list tool (products, menu...), once listed
             for step in range(MAX_STEPS + 1):
                 last = step == MAX_STEPS
                 if last:
                     convo.append(_text("user", "Reply to the visitor now with what you found (action reply)."))
                 move = await _step(system, convo)
                 action, tool = move.get("action"), (move.get("tool") or "").strip()
-                nudge = None if action == "call_tool" or last else _nudge(move.get("reply") or "", used, nudged)
+                nudge = None if action == "call_tool" or last else _nudge(move.get("reply") or "", used, nudged, location)
+                if not nudge and action != "call_tool" and not last and "call_the_tool" in nudged and "call_business_tool" not in used and cards:
+                    # Told once to call the tool and still answering without it (small models): when the
+                    # business has exactly one list (an Oasis shop's products, a menu), open it for them.
+                    action, tool = "call_tool", "call_business_tool"
+                    move = {"action": "call_tool", "tool": tool, "arguments_json": json.dumps({"business_id": cards[0], "tool": cards[1], "inputs": {}})}
+                if (not nudge and action != "call_tool" and not last and "location_known" in nudged and "find_nearby" not in used
+                        and ASKS_PLACE.search(move.get("reply") or "")):
+                    # Told the location once and still asking for it (some models distrust bare coordinates):
+                    # search near the visitor with their own words.
+                    action, tool = "call_tool", "find_nearby"
+                    wanted = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+                    move = {"action": "call_tool", "tool": tool, "arguments_json": json.dumps({"query": wanted[:200], "location": location})}
                 if nudge:
                     # Small models skip steps (answer "I don't know" without looking, or stop at the directory's
                     # one-line description). Send the reply back once with what to do instead.
                     nudged.add(nudge)
-                    convo += [_text("assistant", json.dumps({"action": "reply", "reply": move.get("reply", "")}, ensure_ascii=False)), _text("user", NUDGES[nudge])]
+                    convo += [_text("assistant", json.dumps({"action": "reply", "reply": move.get("reply", "")}, ensure_ascii=False)), _text("user", NUDGES[nudge].format(location=location))]
                     continue
                 if action != "call_tool" or last:
                     reply = (move.get("reply") or "").strip() or "Sorry, I couldn't put an answer together. Could you rephrase that?"
@@ -262,15 +289,19 @@ async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known:
                 if tool == "call_business_tool":
                     args["user_confirmed"] = False  # only the visitor's click confirms (see the module docstring)
                 if tool == "find_nearby" and str(args.get("location", "")).strip().lower() in NO_PLACE:
-                    convo.append(_text("user", "Error: the visitor's location is unknown. Reply and ask them where they are (street, area or city)."))
-                    continue
+                    # A placeholder ("near me", "unknown") would geocode to some random place: use the
+                    # visitor's known location, or search without one, which lists the matches unsorted.
+                    if location.strip():
+                        args["location"] = location
+                    else:
+                        args.pop("location", None)
 
                 await emit({"type": "step", "tool": tool, "arguments": args})
                 used.add(tool)
                 data = await _call(session, tool, args)
                 event: dict[str, Any] = {"type": "result", "tool": tool, "ok": bool(data.get("ok", True)), "summary": _summary(tool, data)}
                 if tool in SEARCH_TOOLS:
-                    event["businesses"] = data.get("businesses", [])
+                    event["businesses"] = data.get("businesses", []) + data.get("online", [])  # online shops too
                 await emit(event)
                 if cat := _catalog(data):
                     await emit({"type": "items", "business_id": args.get("business_id", ""), "business_name": data.get("business", ""),
@@ -289,6 +320,9 @@ async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known:
                     })
                     await emit({"type": "reply", "text": "Before I go ahead, please check the details below and confirm."})
                     return
+                if tool == "list_business_tools" and data.get("ok", True):
+                    lists = [t["name"] for t in data.get("tools", []) if isinstance(t, dict) and t.get("shows_as_cards")]
+                    cards = (args.get("business_id", ""), lists[0]) if len(lists) == 1 else None
                 convo.append(_text("user", f"Result of {tool}:\n{_for_model(data)}"))
 
 
