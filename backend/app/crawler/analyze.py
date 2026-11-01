@@ -465,3 +465,6 @@ async def analyze_run(run_id: int) -> None:
     summary = _enforce(result.data, business, analyses)
     summary["page_errors"] = len(errors)
     db.update("crawl_runs", run_id, ai_status="done", summary=json.dumps(summary, ensure_ascii=False))
+    from ..gateway import search_index
+
+    search_index.schedule(business["id"])  # the new overview and page facts count in search right away

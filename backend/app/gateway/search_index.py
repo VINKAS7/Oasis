@@ -37,7 +37,15 @@ _pending: set[str | None] = set()
 _scheduled = False
 _vectors: dict[str, dict[str, array.array]] | None = None  # model -> "kind:ref" -> vector
 _queries: "OrderedDict[tuple[str, str], array.array]" = OrderedDict()
-_failed_until = 0.0
+_failed_until = 0.0  # query embeddings: skip the model until then (a query failed just now)
+RETRIES = 2          # per indexing batch, with a growing pause
+
+
+def _dot(a: array.array, b: array.array) -> float:
+    return math.fsum(x * y for x, y in zip(a, b))
+
+
+_sumprod = getattr(math, "sumprod", _dot)  # Python 3.12+; the slower sum elsewhere
 
 
 def _route() -> gateway.Route | None:
@@ -162,7 +170,7 @@ async def _drain() -> None:
 
 async def refresh(business_ids: list[str] | None = None) -> int:
     """Embed what changed for these businesses (None: every live one); drop what's gone. Returns how many texts were embedded."""
-    global _vectors, _failed_until
+    global _vectors
     route = _route()
     if route is None:
         return 0
@@ -187,14 +195,24 @@ async def refresh(business_ids: list[str] | None = None) -> int:
         todo = [d for d in docs if existing.get((d[1], d[2])) != (model, _digest(d[3]))]
         stale = [k for k in existing if k not in wanted]
         made: list[tuple[str, str, str, str, bytes]] = []
+        failed = 0
         for at in range(0, len(todo), BATCH):
             chunk = todo[at:at + BATCH]
-            try:
-                vectors = await gateway.embed([d[3] for d in chunk], route=route)
-            except ProviderError as exc:
-                _failed_until = time.monotonic() + BACKOFF_S
-                log.warning("search index: embedding failed (%s); keyword search only for now", exc)
-                break
+            vectors = None
+            for attempt in range(RETRIES + 1):
+                try:
+                    vectors = await gateway.embed([d[3] for d in chunk], route=route)
+                    break
+                except ProviderError as exc:
+                    if attempt == RETRIES:
+                        log.warning("search index: embedding a batch failed (%s); those texts are found by words until the next sweep", exc)
+                    else:
+                        await asyncio.sleep(2 * (attempt + 1))
+            if vectors is None:
+                failed += 1
+                if failed >= 3:  # the model is down: stop for now, the sweep tries again
+                    break
+                continue
             made += [(kind, ref, bid, _digest(text), _unit(v).tobytes()) for (bid, kind, ref, text), v in zip(chunk, vectors)]
         with db.session() as conn:
             for kind, ref in stale:
@@ -253,7 +271,7 @@ async def similar(query: str) -> dict[str, float] | None:
     if not index:
         schedule()  # the embedding model was just set up or changed: build the index now
         return None
-    return {ref: math.sumprod(q, v) for ref, v in index.items() if len(v) == len(q)}
+    return {ref: _sumprod(q, v) for ref, v in index.items() if len(v) == len(q)}
 
 
 # ---- words: BM25 statistics (built from the database, with or without an embedding model) ----

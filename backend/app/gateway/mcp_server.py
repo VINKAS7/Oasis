@@ -35,9 +35,18 @@ def _error(e: service.GatewayError) -> dict[str, Any]:
 
 
 def _business(ref: str) -> str:
-    """A business id from an id or a name; the reference itself when nothing matches (the
-    gateway then answers "not found")."""
-    return directory.resolve(ref) or ref
+    """A business id from an id or a name. Never a guess: a made-up id or a name that fits
+    nothing is "not found", and a name that fits several businesses is "ambiguous" with the
+    candidates, so the assistant asks or picks by id instead of acting on the wrong business."""
+    r = directory.resolve_ref(ref)
+    if r["status"] == "ok":
+        return r["business_id"]
+    if r["status"] == "ambiguous":
+        names = ", ".join(f"{c['name']} ({c['business_id']})" for c in r["candidates"])
+        raise service.GatewayError("ambiguous", f"“{ref}” could be several businesses: {names}. Use the business_id of the one meant "
+                                   "(ask the user if it isn't clear).", candidates=r["candidates"])
+    raise service.GatewayError("not_found", f"No live business is called or has the id “{ref}”. Use search_businesses or find_nearby "
+                               "and take the business_id from the results; never make one up.")
 
 
 def _hinted_location(ctx: Context | None) -> dict[str, Any] | None:
@@ -132,8 +141,8 @@ async def search_businesses(query: str, type: str | None = None) -> dict[str, An
 
     query: the user's words.
     type: a kind of business (optional), as in find_nearby."""
-    found = await directory.search(query, type)
-    return {"ok": True, "query": query, "count": len(found), "businesses": found,
+    found, mode = await directory.search(query, type, with_mode=True)
+    return {"ok": True, "query": query, "count": len(found), "search_mode": mode, "businesses": found,
             "message": "Shown as cards; call show_items with a business and search= the user's words to show its matching items." if found
             else "No business offers that yet."}
 
@@ -165,7 +174,8 @@ async def call_business_tool(business_id: str, tool: str, inputs: dict[str, Any]
     inputs: the tool's inputs, as described by list_business_tools.
     user_confirmed: set to true only after the user said yes to exactly this action (needed for tools that take an action or use personal details)."""
     try:
-        return await service.call_tool(_business(business_id), tool, inputs or {}, user_confirmed)
+        bid = _business(business_id)
+        return {**await service.call_tool(bid, tool, inputs or {}, user_confirmed), "business_id": bid}
     except service.GatewayError as e:
         return _error(e)
 

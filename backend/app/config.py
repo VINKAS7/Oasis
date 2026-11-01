@@ -18,6 +18,10 @@ FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
 AUTH_URL = os.getenv("AUTH_URL", "http://127.0.0.1:3001").rstrip("/")
 SECRETS_KEY = os.getenv("SECRETS_KEY", "").strip()
 GEOCODER_CONTACT = os.getenv("GEOCODER_CONTACT", "").strip()
+# Countries place names are looked up in first (ISO codes, comma-separated; empty: anywhere).
+GEOCODE_COUNTRIES = os.getenv("GEOCODE_COUNTRIES", "ch").strip()
+# The businesses' timezone: "open now" and "open at 19:00" are read in it.
+TIMEZONE = os.getenv("TIMEZONE", "Europe/Zurich").strip()
 
 # For automated tests of the recorder: run its browser without a window and let a test
 # script drive it over the Chrome DevTools Protocol on this port.
