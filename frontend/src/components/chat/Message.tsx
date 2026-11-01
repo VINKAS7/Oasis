@@ -2,28 +2,30 @@ import { Check, CircleAlert, Loader2, MapPin, ShieldCheck, Sparkles, Store, X } 
 import type { ChatBusiness, ChatCatalog, ChatStep, ChatTurn } from "../../types";
 import { ItemGrid } from "./ItemGrid";
 import { Button, cx } from "../ui";
+import { useT, type Translate } from "../../lib/i18n";
 
 const pretty = (name: string) => name.replace(/^(get|list)_/, "").replace(/_/g, " ");
 
-function stepLabel(step: ChatStep): string {
+function stepLabel(step: ChatStep, t: Translate): string {
   const a = step.arguments;
   switch (step.tool) {
     case "find_nearby":
-      return `Searching nearby${a.type ? ` ${String(a.type)}` : " places"}${a.open_at ? ` open at ${String(a.open_at)}` : ""}`;
+      return (a.type ? t("step.nearbyType", { type: String(a.type) }) : t("step.nearby")) + (a.open_at ? t("step.openAt", { time: String(a.open_at) }) : "");
     case "search_businesses":
-      return `Searching for “${String(a.query ?? "")}”`;
+      return t("step.search", { query: String(a.query ?? "") });
     case "get_business_info":
-      return "Looking up the business";
+      return t("step.info");
     case "list_business_tools":
-      return "Checking what the business offers";
+      return t("step.tools");
     case "call_business_tool":
-      return `Asking the business: ${pretty(String(a.tool ?? "tool"))}`;
+      return t("step.call", { tool: pretty(String(a.tool ?? "tool")) });
     default:
       return pretty(step.tool);
   }
 }
 
 function StepChip({ step }: { step: ChatStep }) {
+  const { t } = useT();
   return (
     <div className="flex items-center gap-1.5 text-[14px] text-stone-500">
       {!step.done ? (
@@ -33,7 +35,7 @@ function StepChip({ step }: { step: ChatStep }) {
       ) : (
         <CircleAlert className="size-3.5 text-amber-600" />
       )}
-      <span>{stepLabel(step)}</span>
+      <span>{stepLabel(step, t)}</span>
       {step.done && step.summary && <span className="text-stone-400">· {step.summary}</span>}
     </div>
   );
@@ -45,6 +47,7 @@ function distance(km?: number): string {
 }
 
 function BusinessCard({ b }: { b: ChatBusiness }) {
+  const { t } = useT();
   return (
     <div className="flex gap-3 rounded-xl border border-stone-200 bg-white p-3">
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-800">
@@ -57,7 +60,7 @@ function BusinessCard({ b }: { b: ChatBusiness }) {
         </div>
         <div className="truncate text-xs text-stone-500">
           {b.kind}
-          {b.open_at_requested_time === true && <span className="text-emerald-700"> · open then</span>}
+          {b.open_at_requested_time === true && <span className="text-emerald-700"> · {t("msg.openThen")}</span>}
         </div>
         {b.address && (
           <div className="mt-1 flex items-center gap-1 truncate text-xs text-stone-500">
@@ -91,11 +94,12 @@ function Linkified({ text }: { text: string }) {
 function ConfirmCard({ turn, onConfirm, onCancel }: { turn: ChatTurn; onConfirm: () => void; onCancel: () => void }) {
   const c = turn.confirm!;
   const details = Object.entries(c.would_send);
+  const { t } = useT();
   return (
     <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-4">
       <div className="flex items-center gap-2 font-medium text-stone-800">
         <ShieldCheck className="size-4 text-brand-800" />
-        {pretty(c.tool).replace(/^./, (s) => s.toUpperCase())} at {c.business_name}
+        {t("msg.actionAt", { action: pretty(c.tool).replace(/^./, (s) => s.toUpperCase()), business: c.business_name })}
       </div>
       {details.length > 0 && (
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-sm">
@@ -110,14 +114,14 @@ function ConfirmCard({ turn, onConfirm, onCancel }: { turn: ChatTurn; onConfirm:
       {c.state === "pending" ? (
         <div className="mt-3 flex gap-2">
           <Button onClick={onConfirm}>
-            <Check className="size-4" /> Confirm
+            <Check className="size-4" /> {t("msg.confirm")}
           </Button>
           <Button variant="secondary" onClick={onCancel}>
-            <X className="size-4" /> Cancel
+            <X className="size-4" /> {t("msg.cancel")}
           </Button>
         </div>
       ) : (
-        <p className="mt-2 text-sm text-stone-500">{c.state === "confirmed" ? "You confirmed this." : "You cancelled this."}</p>
+        <p className="mt-2 text-sm text-stone-500">{c.state === "confirmed" ? t("msg.confirmed") : t("msg.cancelledThis")}</p>
       )}
     </div>
   );
@@ -132,6 +136,7 @@ export function UserMessage({ turn }: { turn: ChatTurn }) {
 }
 
 export function AssistantMessage({ turn, busy, onConfirm, onCancel, onCatalog }: { turn: ChatTurn; busy: boolean; onConfirm: () => void; onCancel: () => void; onCatalog: (c: ChatCatalog) => void }) {
+  const { t } = useT();
   const thinking = busy && !turn.text && !turn.error && !(turn.steps ?? []).some((s) => !s.done);
   return (
     <div className="flex gap-3">
@@ -154,7 +159,7 @@ export function AssistantMessage({ turn, busy, onConfirm, onCancel, onCatalog }:
           </div>
         )}
         {thinking && (
-          <div className="flex items-center gap-1 py-1.5" aria-label="Thinking">
+          <div className="flex items-center gap-1 py-1.5" aria-label={t("msg.thinking")}>
             {[0, 1, 2].map((i) => (
               <span key={i} className="size-1.5 animate-bounce rounded-full bg-stone-400" style={{ animationDelay: `${i * 150}ms` }} />
             ))}

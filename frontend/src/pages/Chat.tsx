@@ -4,15 +4,18 @@ import { ArrowUp, Building2, LocateFixed, MapPin, Menu, SquarePen, Square, Trash
 import { AssistantMessage, UserMessage } from "../components/chat/Message";
 import { OasisLogo, OasisMark } from "../components/Brand";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { LanguagePicker } from "../components/LanguagePicker";
 import { cx } from "../components/ui";
+import { useT } from "../lib/i18n";
 import { knownBusinesses, loadThreads, newId, saveThreads, streamChat, toMessages } from "../lib/chat";
 import type { ChatEvent, ChatThread, ChatTurn } from "../types";
 
-const SUGGESTIONS = ["What's the nearest restaurant?", "Which restaurants are open now near me?", "Find a vegetarian lunch nearby", "Any café near me with Wi-Fi?"];
+const SUGGESTIONS = ["chat.suggest1", "chat.suggest2", "chat.suggest3", "chat.suggest4"] as const;
 
 interface Place {
   label: string;
   value: string; // "lat, lng" or a place name, passed to find_nearby
+  mine?: boolean; // the browser's own position: its label follows the chosen language
 }
 
 const PLACE_KEY = "agentready.chat.place";
@@ -58,20 +61,21 @@ function LocationPill({ place, onChange }: { place: Place | null; onChange: (p: 
   const [typed, setTyped] = useState("");
   const [error, setError] = useState("");
   const [locating, setLocating] = useState(false);
+  const { t } = useT();
 
   const useMine = () => {
     setError("");
-    if (!navigator.geolocation) return setError("Your browser can't share its location. Type a place instead.");
+    if (!navigator.geolocation) return setError(t("loc.noGeo"));
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        onChange({ label: "Your location", value: `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}` });
+        onChange({ label: "", mine: true, value: `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}` });
         setOpen(false);
       },
       () => {
         setLocating(false);
-        setError("Location was blocked. Type a street, area or city instead.");
+        setError(t("loc.blocked"));
       },
       { timeout: 10000 },
     );
@@ -96,7 +100,7 @@ function LocationPill({ place, onChange }: { place: Place | null; onChange: (p: 
         )}
       >
         <MapPin className="size-3.5" />
-        {place ? place.label : "Set your location"}
+        {place ? (place.mine ? t("loc.yours") : place.label) : t("loc.set")}
       </button>
       {open && (
         <>
@@ -108,26 +112,26 @@ function LocationPill({ place, onChange }: { place: Place | null; onChange: (p: 
               disabled={locating}
               className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-hover disabled:opacity-60"
             >
-              <LocateFixed className="size-4 text-brand-700" /> {locating ? "Finding you…" : "Use my current location"}
+              <LocateFixed className="size-4 text-brand-700" /> {locating ? t("loc.finding") : t("loc.useMine")}
             </button>
             <form onSubmit={submit} className="mt-2 flex gap-2">
               <input
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
-                placeholder="Or type a place, e.g. Marktplatz Basel"
+                placeholder={t("loc.placeholder")}
                 className="min-w-0 flex-1 rounded-lg border border-stone-200 px-2.5 py-1.5 text-sm focus:border-brand-600 focus:outline-none"
               />
               <button type="submit" className="rounded-lg bg-stone-800 px-2.5 text-sm text-white">
-                Set
+                {t("loc.setButton")}
               </button>
             </form>
             {error && <p className="mt-2 text-xs text-soft-red-ink">{error}</p>}
             {place && (
               <button type="button" onClick={() => (onChange(null), setOpen(false))} className="mt-2 text-xs text-stone-500 hover:underline">
-                Forget my location
+                {t("loc.forget")}
               </button>
             )}
-            <p className="mt-2 text-[12px] leading-snug text-stone-400">Used only to search nearby places, never stored on our side.</p>
+            <p className="mt-2 text-[12px] leading-snug text-stone-400">{t("loc.privacy")}</p>
           </div>
         </>
       )}
@@ -136,6 +140,7 @@ function LocationPill({ place, onChange }: { place: Place | null; onChange: (p: 
 }
 
 function ThreadList({ threads, activeId, onPick, onNew, onDelete }: { threads: ChatThread[]; activeId: string | null; onPick: (id: string) => void; onNew: () => void; onDelete: (id: string) => void }) {
+  const { t: tr } = useT();
   return (
     <div className="flex h-full flex-col px-2 py-3">
       <div className="flex items-center justify-between px-2 pb-3">
@@ -144,24 +149,24 @@ function ThreadList({ threads, activeId, onPick, onNew, onDelete }: { threads: C
         </span>
       </div>
       <button onClick={onNew} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-stone-700 hover:bg-hover">
-        <SquarePen className="size-4" /> New chat
+        <SquarePen className="size-4" /> {tr("chat.newChat")}
       </button>
-      <div className="mt-4 px-2 pb-1 text-xs font-medium text-stone-500">Recent</div>
+      <div className="mt-4 px-2 pb-1 text-xs font-medium text-stone-500">{tr("chat.recent")}</div>
       <div className="min-h-0 flex-1 space-y-px overflow-y-auto">
         {threads.map((t) => (
           <div key={t.id} className={cx("group flex items-center rounded-lg", t.id === activeId ? "bg-hover" : "hover:bg-hover")}>
             <button onClick={() => onPick(t.id)} className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm text-stone-700">
               {t.title}
             </button>
-            <button onClick={() => onDelete(t.id)} className="mr-1 hidden rounded p-1 text-stone-400 group-hover:block hover:text-stone-700" title="Delete chat">
+            <button onClick={() => onDelete(t.id)} className="mr-1 hidden rounded p-1 text-stone-400 group-hover:block hover:text-stone-700" title={tr("chat.deleteChat")}>
               <Trash2 className="size-3.5" />
             </button>
           </div>
         ))}
-        {threads.length === 0 && <p className="px-2 py-1 text-xs text-stone-400">Your chats stay in this browser.</p>}
+        {threads.length === 0 && <p className="px-2 py-1 text-xs text-stone-400">{tr("chat.noChats")}</p>}
       </div>
       <Link to="/login" className="mt-2 flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-stone-500 hover:bg-hover hover:text-stone-700">
-        <Building2 className="size-4" /> For businesses →
+        <Building2 className="size-4" /> {tr("chat.forBusinesses")}
       </Link>
     </div>
   );
@@ -177,6 +182,7 @@ export function ChatPage() {
   const abort = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  const { lang, t } = useT();
 
   const thread = useMemo(() => threads.find((t) => t.id === activeId) ?? null, [threads, activeId]);
   const turns = thread?.turns ?? [];
@@ -200,6 +206,7 @@ export function ChatPage() {
   /** Adds turns to a thread (creating it if needed), streams the answer into the new assistant turn. */
   const run = async (path: string, history: ChatTurn[], extra: Record<string, unknown>, newTurns: ChatTurn[], title: string) => {
     const threadId = activeId ?? newId();
+    const stopText = t("chat.stopped");
     const reply: ChatTurn = { id: newId(), role: "assistant", text: "", steps: [] };
     setThreads((all) => {
       const existing = all.find((t) => t.id === threadId);
@@ -212,10 +219,10 @@ export function ChatPage() {
     setBusy(true);
     abort.current = new AbortController();
     try {
-      await streamChat(path, { messages: toMessages(history), location: place?.value ?? "", businesses: knownBusinesses(history), ...extra }, (e) => updateTurn(threadId, reply.id, (t) => applyEvent(t, e)), abort.current.signal);
+      await streamChat(path, { messages: toMessages(history), location: place?.value ?? "", businesses: knownBusinesses(history), language: lang, ...extra }, (e) => updateTurn(threadId, reply.id, (t) => applyEvent(t, e)), abort.current.signal);
     } catch (err) {
       const stopped = (err as Error).name === "AbortError";
-      updateTurn(threadId, reply.id, (t) => (stopped ? { ...t, text: t.text || "Stopped.", steps: t.steps?.map((s) => ({ ...s, done: true })) } : { ...t, error: (err as Error).message }));
+      updateTurn(threadId, reply.id, (t) => (stopped ? { ...t, text: t.text || stopText, steps: t.steps?.map((s) => ({ ...s, done: true })) } : { ...t, error: (err as Error).message }));
     } finally {
       setBusy(false);
       abort.current = null;
@@ -234,7 +241,7 @@ export function ChatPage() {
     if (!thread || !turn.confirm || busy) return;
     const c = turn.confirm;
     updateTurn(thread.id, turn.id, (t) => ({ ...t, confirm: { ...c, state: "confirmed" } }));
-    const yes: ChatTurn = { id: newId(), role: "user", text: "Yes, go ahead." };
+    const yes: ChatTurn = { id: newId(), role: "user", text: t("chat.yes") };
     void run("/api/chat/confirm", [...turns, yes], { business_id: c.business_id, tool: c.tool, inputs: c.inputs }, [yes], thread.title);
   };
 
@@ -242,7 +249,7 @@ export function ChatPage() {
     if (!thread || !turn.confirm) return;
     updateTurn(thread.id, turn.id, (t) => ({ ...t, confirm: { ...t.confirm!, state: "cancelled" } }));
     setThreads((all) =>
-      all.map((th) => (th.id !== thread.id ? th : { ...th, turns: [...th.turns, { id: newId(), role: "user", text: "No, cancel that." }, { id: newId(), role: "assistant", text: "Okay, I won't do that. Anything else?" }] })),
+      all.map((th) => (th.id !== thread.id ? th : { ...th, turns: [...th.turns, { id: newId(), role: "user", text: t("chat.no") }, { id: newId(), role: "assistant", text: t("chat.cancelled") }] })),
     );
   };
 
@@ -285,7 +292,7 @@ export function ChatPage() {
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMenuOpen(false)} />
           <aside className="relative h-full w-72 bg-sidebar shadow-xl">
-            <button onClick={() => setMenuOpen(false)} className="absolute top-3 right-2 rounded p-1 text-stone-500 hover:bg-hover" aria-label="Close menu">
+            <button onClick={() => setMenuOpen(false)} className="absolute top-3 right-2 rounded p-1 text-stone-500 hover:bg-hover" aria-label={t("chat.closeMenu")}>
               <X className="size-4" />
             </button>
             {list}
@@ -296,14 +303,15 @@ export function ChatPage() {
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-12 shrink-0 items-center justify-between gap-2 px-3">
           <div className="flex items-center gap-1">
-            <button onClick={() => setMenuOpen(true)} className="rounded p-1.5 text-stone-500 hover:bg-hover md:hidden" aria-label="Open menu">
+            <button onClick={() => setMenuOpen(true)} className="rounded p-1.5 text-stone-500 hover:bg-hover md:hidden" aria-label={t("chat.openMenu")}>
               <Menu className="size-4" />
             </button>
-            <button onClick={newChat} className="rounded p-1.5 text-stone-500 hover:bg-hover md:hidden" aria-label="New chat">
+            <button onClick={newChat} className="rounded p-1.5 text-stone-500 hover:bg-hover md:hidden" aria-label={t("chat.newChat")}>
               <SquarePen className="size-4" />
             </button>
           </div>
           <div className="flex items-center gap-1">
+            <LanguagePicker />
             <ThemeToggle />
             <LocationPill place={place} onChange={setPlace} />
           </div>
@@ -313,10 +321,10 @@ export function ChatPage() {
           {turns.length === 0 ? (
             <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center px-4 pb-16 text-center">
               <OasisMark className="mb-5 size-12 text-stone-900" />
-              <h1 className="text-3xl font-semibold tracking-tight text-stone-800">What are you looking for?</h1>
-              <p className="mt-2 text-stone-500">Find places nearby, check menus, prices and opening hours, and book, all by asking.</p>
+              <h1 className="text-3xl font-semibold tracking-tight text-stone-800">{t("chat.title")}</h1>
+              <p className="mt-2 text-stone-500">{t("chat.subtitle")}</p>
               <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
-                {SUGGESTIONS.map((s) => (
+                {SUGGESTIONS.map((key) => t(key)).map((s) => (
                   <button key={s} onClick={() => send(s)} className="rounded-xl border border-stone-200 px-4 py-3 text-left text-sm text-stone-700 hover:bg-stone-50">
                     {s}
                   </button>
@@ -357,20 +365,20 @@ export function ChatPage() {
               rows={1}
               maxLength={4000}
               autoFocus
-              placeholder={place ? "Ask about places near you…" : "Ask anything, e.g. what's the nearest restaurant?"}
+              placeholder={place ? t("chat.placeholderNear") : t("chat.placeholder")}
               className="max-h-[200px] min-h-6 flex-1 resize-none bg-transparent py-1 text-[15px] text-stone-800 placeholder:text-stone-400 focus:outline-none"
             />
             {busy ? (
-              <button type="button" onClick={() => abort.current?.abort()} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-stone-800 text-white" aria-label="Stop">
+              <button type="button" onClick={() => abort.current?.abort()} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-stone-800 text-white" aria-label={t("chat.stop")}>
                 <Square className="size-3 fill-current" />
               </button>
             ) : (
-              <button type="submit" disabled={!input.trim()} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-stone-800 text-white disabled:bg-stone-200" aria-label="Send">
+              <button type="submit" disabled={!input.trim()} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-stone-800 text-white disabled:bg-stone-200" aria-label={t("chat.send")}>
                 <ArrowUp className="size-4" />
               </button>
             )}
           </form>
-          <p className="mt-2 text-center text-xs text-stone-400">Answers come from the businesses' own Oasis tools. Bookings always wait for your OK.</p>
+          <p className="mt-2 text-center text-xs text-stone-400">{t("chat.footer")}</p>
         </div>
       </main>
     </div>

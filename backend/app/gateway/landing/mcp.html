@@ -115,6 +115,8 @@
   .icon-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 8px; border: 0; border-radius: 6px;
     background: transparent; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
   .icon-btn:hover { background: var(--hover); color: var(--ink); }
+  .lang { position: relative; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .lang select { position: absolute; inset: 0; opacity: 0; cursor: pointer; font: inherit; }
 
   /* Cover and page icon. */
   .cover { height: 200px; background: var(--cover); position: relative; overflow: hidden; }
@@ -263,6 +265,7 @@
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></symbol>
     <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2" /><path d="M8 21h8" /><path d="M12 17v4" /></symbol>
   </defs>
 </svg>
@@ -272,7 +275,9 @@
   <span class="crumb-sep">/</span>
   <span class="crumb">MCP</span>
   <span class="spacer"></span>
-  <button class="icon-btn hide-sm" type="button" data-copy-link title="Copy the link to this page"><svg class="i"><use href="#i-link" /></svg> Share</button>
+  <button class="icon-btn hide-sm" type="button" data-copy-link title="Copy the link to this page"><svg class="i"><use href="#i-link" /></svg> <span data-i18n="share">Share</span></button>
+  <label class="icon-btn lang" title="Language"><svg class="i"><use href="#i-globe" /></svg><span id="lang-code">EN</span>
+    <select id="lang" aria-label="Language"><option value="en">English</option><option value="fr">Français</option><option value="it">Italiano</option><option value="de">Deutsch</option></select></label>
   <button class="icon-btn" type="button" id="theme" title="Theme"><svg class="i"><use href="#i-monitor" /></svg></button>
 </div>
 
@@ -281,70 +286,70 @@
 <main class="page">
   <div class="page-icon"><svg><use href="#oasis-mark" /></svg></div>
   <h1 class="title">Oasis MCP</h1>
-  <p class="subtitle">Find, browse and order from local businesses right inside ChatGPT and Claude.</p>
+  <p class="subtitle" data-i18n="subtitle">Find, browse and order from local businesses right inside ChatGPT and Claude.</p>
 
   <div class="props">
     <div class="prop">
-      <span class="prop-name"><svg class="i"><use href="#i-link" /></svg>Server</span>
+      <span class="prop-name"><svg class="i"><use href="#i-link" /></svg><span data-i18n="server">Server</span></span>
       <span class="prop-value" style="flex:1">
         <span class="url-value" id="mcp-url">{{MCP_URL}}</span>
         <button class="copy-btn" type="button" data-copy><svg class="i" style="width:13px;height:13px"><use href="#i-copy" /></svg><span>Copy</span></button>
       </span>
     </div>
     <div class="prop">
-      <span class="prop-name"><svg class="i"><use href="#i-plug" /></svg>Transport</span>
+      <span class="prop-name"><svg class="i"><use href="#i-plug" /></svg><span data-i18n="transport">Transport</span></span>
       <span class="prop-value"><span class="tag blue">Streamable HTTP</span></span>
     </div>
     <div class="prop">
-      <span class="prop-name"><svg class="i"><use href="#i-lock" /></svg>Authentication</span>
-      <span class="prop-value"><span class="tag green">None needed</span></span>
+      <span class="prop-name"><svg class="i"><use href="#i-lock" /></svg><span data-i18n="auth">Authentication</span></span>
+      <span class="prop-value"><span class="tag green" data-i18n="noAuth">None needed</span></span>
     </div>
     <div class="prop">
-      <span class="prop-name"><svg class="i"><use href="#i-list" /></svg>Works with</span>
+      <span class="prop-name"><svg class="i"><use href="#i-list" /></svg><span data-i18n="worksWith">Works with</span></span>
       <span class="prop-value">
         <span class="tag gray"><img src="/mcp/chatgpt.png" alt="" onerror="this.remove()" />ChatGPT</span>
         <span class="tag gray"><img src="/mcp/claude.png" alt="" onerror="this.remove()" />Claude</span>
         <span class="tag gray">Claude Code</span>
-        <span class="tag gray">Any MCP client</span>
+        <span class="tag gray" data-i18n="anyClient">Any MCP client</span>
       </span>
     </div>
   </div>
 
-  <h2>Connect</h2>
-  <p class="lede">Pick your assistant. We copy the server address for you and open its connector settings: paste it there and you're done.</p>
+  <h2 data-i18n="connect">Connect</h2>
+  <p class="lede" data-i18n="connectLede">Pick your assistant. We copy the server address for you and open its connector settings: paste it there and you're done.</p>
 
   <div class="connect">
     <a class="connect-card" data-connect="ChatGPT" href="https://chatgpt.com/#settings/Connectors" target="_blank" rel="noopener">
       <div class="connect-head">
         <span class="app-icon"><img src="/mcp/chatgpt.png" alt="" onerror="this.remove()" /></span>
-        <span><div class="connect-title">ChatGPT</div><div class="connect-sub">Settings → Apps &amp; Connectors</div></span>
+        <span><div class="connect-title">ChatGPT</div><div class="connect-sub" data-i18n="subChatgpt">Settings → Apps &amp; Connectors</div></span>
       </div>
-      <span class="connect-cta">Connect to ChatGPT <svg class="i" style="width:14px;height:14px"><use href="#i-external" /></svg></span>
+      <span class="connect-cta"><span data-i18n="ctaChatgpt">Connect to ChatGPT</span> <svg class="i" style="width:14px;height:14px"><use href="#i-external" /></svg></span>
     </a>
     <a class="connect-card" data-connect="Claude" href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">
       <div class="connect-head">
         <span class="app-icon"><img src="/mcp/claude.png" alt="" onerror="this.remove()" /></span>
-        <span><div class="connect-title">Claude</div><div class="connect-sub">Settings → Connectors</div></span>
+        <span><div class="connect-title">Claude</div><div class="connect-sub" data-i18n="subClaude">Settings → Connectors</div></span>
       </div>
-      <span class="connect-cta">Connect to Claude <svg class="i" style="width:14px;height:14px"><use href="#i-external" /></svg></span>
+      <span class="connect-cta"><span data-i18n="ctaClaude">Connect to Claude</span> <svg class="i" style="width:14px;height:14px"><use href="#i-external" /></svg></span>
     </a>
   </div>
 
   <div class="callout gray">
     <span class="emoji">💡</span>
-    <p>Oasis isn't in the ChatGPT or Claude app directories yet, so you add it as a <b>custom connector</b>. It takes about a minute, and the steps are below.</p>
+    <p data-i18n="notListed">Oasis isn't in the ChatGPT or Claude app directories yet, so you add it as a <b>custom connector</b>. It takes about a minute, and the steps are below.</p>
   </div>
 
-  <h2>How to connect</h2>
+  <h2 data-i18n="howTo">How to connect</h2>
 
   <details class="toggle" open>
     <summary><span class="tri"><svg class="i" style="width:14px;height:14px"><use href="#i-chevron" /></svg></span><img src="/mcp/chatgpt.png" alt="" onerror="this.remove()" />ChatGPT</summary>
     <div class="toggle-body">
       <ol class="steps">
-        <li>Open <a class="link" href="https://chatgpt.com/#settings/Connectors" target="_blank" rel="noopener" data-connect="ChatGPT">ChatGPT settings</a> and go to <span class="chip">Apps &amp; Connectors</span>.</li>
-        <li>Under <span class="chip">Advanced settings</span>, turn on <span class="chip">Developer mode</span>.</li>
-        <li>Click <span class="chip">Create</span>, name it <b>Oasis</b>, paste the server address, choose <span class="chip">No authentication</span> and save.</li>
-        <li>In a chat, pick Oasis under <span class="chip">+</span> → <span class="chip">Developer mode</span>, then ask away.</li>
+        <li data-i18n="gpt1">Open <a class="link" href="https://chatgpt.com/#settings/Connectors" target="_blank" rel="noopener" data-connect="ChatGPT">ChatGPT settings</a> and go to <span class="chip">Apps &amp; Connectors</span>.</li>
+        <li data-i18n="gpt2">Under <span class="chip">Advanced settings</span>, turn on <span class="chip">Developer mode</span>.</li>
+        <li data-i18n="gpt3">Click <span class="chip">Create</span>, name it <b>Oasis</b>, paste the server address, choose <span class="chip">No authentication</span> and save.</li>
+        <li data-i18n="gpt4">In a chat, pick Oasis under <span class="chip">+</span> → <span class="chip">Developer mode</span>, then ask away.</li>
       </ol>
     </div>
   </details>
@@ -353,20 +358,20 @@
     <summary><span class="tri"><svg class="i" style="width:14px;height:14px"><use href="#i-chevron" /></svg></span><img src="/mcp/claude.png" alt="" onerror="this.remove()" />Claude</summary>
     <div class="toggle-body">
       <ol class="steps">
-        <li>Open <a class="link" href="https://claude.ai/settings/connectors" target="_blank" rel="noopener" data-connect="Claude">Claude settings → Connectors</a>.</li>
-        <li>Click <span class="chip">Add custom connector</span>, name it <b>Oasis</b> and paste the server address.</li>
-        <li>Click <span class="chip">Add</span>. It works in Claude on the web, desktop and mobile.</li>
-        <li>In a chat, check that Oasis is on in the <span class="chip">Search and tools</span> menu.</li>
+        <li data-i18n="cl1">Open <a class="link" href="https://claude.ai/settings/connectors" target="_blank" rel="noopener" data-connect="Claude">Claude settings → Connectors</a>.</li>
+        <li data-i18n="cl2">Click <span class="chip">Add custom connector</span>, name it <b>Oasis</b> and paste the server address.</li>
+        <li data-i18n="cl3">Click <span class="chip">Add</span>. It works in Claude on the web, desktop and mobile.</li>
+        <li data-i18n="cl4">In a chat, check that Oasis is on in the <span class="chip">Search and tools</span> menu.</li>
       </ol>
     </div>
   </details>
 
   <details class="toggle">
-    <summary><span class="tri"><svg class="i" style="width:14px;height:14px"><use href="#i-chevron" /></svg></span>Claude Code and other MCP clients</summary>
+    <summary><span class="tri"><svg class="i" style="width:14px;height:14px"><use href="#i-chevron" /></svg></span><span data-i18n="otherClients">Claude Code and other MCP clients</span></summary>
     <div class="toggle-body">
       <p>Claude Code:</p>
       <pre>claude mcp add --transport http oasis {{MCP_URL}}</pre>
-      <p>Clients configured with JSON:</p>
+      <p data-i18n="jsonClients">Clients configured with JSON:</p>
       <pre>{
   "mcpServers": {
     "oasis": { "type": "http", "url": "{{MCP_URL}}" }
@@ -375,35 +380,35 @@
     </div>
   </details>
 
-  <h2>Try it</h2>
-  <p class="lede">Once Oasis is connected, start with one of these.</p>
+  <h2 data-i18n="tryIt">Try it</h2>
+  <p class="lede" data-i18n="tryLede">Once Oasis is connected, start with one of these.</p>
   <table class="table">
     <thead>
       <tr>
-        <th style="width:58%"><span><svg class="i" style="width:14px;height:14px"><use href="#i-text" /></svg>Prompt</span></th>
-        <th><span><svg class="i" style="width:14px;height:14px"><use href="#i-sparkles" /></svg>Open in</span></th>
+        <th style="width:58%"><span><svg class="i" style="width:14px;height:14px"><use href="#i-text" /></svg><span data-i18n="prompt">Prompt</span></span></th>
+        <th><span><svg class="i" style="width:14px;height:14px"><use href="#i-sparkles" /></svg><span data-i18n="openIn">Open in</span></span></th>
       </tr>
     </thead>
     <tbody id="prompts"></tbody>
   </table>
 
-  <h2>What Oasis can do</h2>
+  <h2 data-i18n="can">What Oasis can do</h2>
   <div class="features">
-    <div class="callout gray"><span class="emoji">📍</span><div><h3>Find nearby</h3><p>The nearest shops, restaurants, salons and more, around you or a place you name.</p></div></div>
-    <div class="callout gray"><span class="emoji">🔎</span><div><h3>Search by meaning</h3><p>Ask in your own words, in any language. Typos and plurals are fine.</p></div></div>
-    <div class="callout gray"><span class="emoji">🛍️</span><div><h3>Browse items</h3><p>Menus, products and services as cards in the chat, with photos and prices.</p></div></div>
-    <div class="callout gray"><span class="emoji">✅</span><div><h3>Order and book</h3><p>Run a business's own tools. Nothing happens until you say yes.</p></div></div>
+    <div class="callout gray"><span class="emoji">📍</span><div data-i18n="f1"><h3>Find nearby</h3><p>The nearest shops, restaurants, salons and more, around you or a place you name.</p></div></div>
+    <div class="callout gray"><span class="emoji">🔎</span><div data-i18n="f2"><h3>Search by meaning</h3><p>Ask in your own words, in any language. Typos and plurals are fine.</p></div></div>
+    <div class="callout gray"><span class="emoji">🛍️</span><div data-i18n="f3"><h3>Browse items</h3><p>Menus, products and services as cards in the chat, with photos and prices.</p></div></div>
+    <div class="callout gray"><span class="emoji">✅</span><div data-i18n="f4"><h3>Order and book</h3><p>Run a business's own tools. Nothing happens until you say yes.</p></div></div>
   </div>
 
   <div class="callout blue">
     <span class="emoji">🔐</span>
-    <p>Your location is used for one search and never stored. Every answer is signed by the business it comes from (Ed25519).</p>
+    <p data-i18n="privacy">Your location is used for one search and never stored. Every answer is signed by the business it comes from (Ed25519).</p>
   </div>
 
   <hr class="divider" />
   <footer>
-    <span>Oasis turns local business websites into tools AI assistants can use.</span>
-    <a class="link" href="/chat">Try Oasis chat</a>
+    <span data-i18n="footer">Oasis turns local business websites into tools AI assistants can use.</span>
+    <a class="link" href="/chat" data-i18n="tryChat">Try Oasis chat</a>
   </footer>
 </main>
 
@@ -424,26 +429,237 @@
     catch { return false; }
   }
 
+  // ---- language: English, French, Italian or German, shared with the Oasis chat (localStorage "oasis.lang") ----
+  // The English text is the page's own; elements marked data-i18n get the other languages from T.
+  const T = {
+    "fr": {
+      "share": "Partager",
+      "subtitle": "Trouvez, parcourez et commandez auprès de commerces locaux directement dans ChatGPT et Claude.",
+      "server": "Serveur",
+      "transport": "Transport",
+      "auth": "Authentification",
+      "noAuth": "Aucune requise",
+      "worksWith": "Compatible avec",
+      "anyClient": "Tout client MCP",
+      "connect": "Connexion",
+      "connectLede": "Choisissez votre assistant. Nous copions l'adresse du serveur pour vous et ouvrons ses réglages de connecteurs : collez-la et c'est terminé.",
+      "subChatgpt": "Réglages → Apps &amp; Connectors",
+      "ctaChatgpt": "Connecter à ChatGPT",
+      "subClaude": "Réglages → Connectors",
+      "ctaClaude": "Connecter à Claude",
+      "notListed": "Oasis n'est pas encore dans les répertoires d'apps de ChatGPT ou de Claude : vous l'ajoutez donc comme <b>connecteur personnalisé</b>. Cela prend environ une minute, et les étapes sont ci-dessous.",
+      "howTo": "Comment se connecter",
+      "gpt1": "Ouvrez les <a class=\"link\" href=\"https://chatgpt.com/#settings/Connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"ChatGPT\">réglages de ChatGPT</a> et allez dans <span class=\"chip\">Apps &amp; Connectors</span>.",
+      "gpt2": "Sous <span class=\"chip\">Advanced settings</span>, activez le <span class=\"chip\">Developer mode</span>.",
+      "gpt3": "Cliquez sur <span class=\"chip\">Create</span>, nommez-le <b>Oasis</b>, collez l'adresse du serveur, choisissez <span class=\"chip\">No authentication</span> et enregistrez.",
+      "gpt4": "Dans une discussion, choisissez Oasis sous <span class=\"chip\">+</span> → <span class=\"chip\">Developer mode</span>, puis posez vos questions.",
+      "cl1": "Ouvrez <a class=\"link\" href=\"https://claude.ai/settings/connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"Claude\">Réglages de Claude → Connectors</a>.",
+      "cl2": "Cliquez sur <span class=\"chip\">Add custom connector</span>, nommez-le <b>Oasis</b> et collez l'adresse du serveur.",
+      "cl3": "Cliquez sur <span class=\"chip\">Add</span>. Cela fonctionne dans Claude sur le web, sur ordinateur et sur mobile.",
+      "cl4": "Dans une discussion, vérifiez qu'Oasis est activé dans le menu <span class=\"chip\">Search and tools</span>.",
+      "otherClients": "Claude Code et autres clients MCP",
+      "jsonClients": "Clients configurés en JSON :",
+      "tryIt": "Essayez",
+      "tryLede": "Une fois Oasis connecté, commencez par l'une de ces demandes.",
+      "prompt": "Demande",
+      "openIn": "Ouvrir dans",
+      "can": "Ce que fait Oasis",
+      "f1": "<h3>Trouver à proximité</h3><p>Les commerces, restaurants, salons et plus encore les plus proches, autour de vous ou d'un lieu que vous indiquez.</p>",
+      "f2": "<h3>Recherche par le sens</h3><p>Demandez avec vos propres mots, dans n'importe quelle langue. Fautes de frappe et pluriels acceptés.</p>",
+      "f3": "<h3>Parcourir les articles</h3><p>Menus, produits et services sous forme de cartes dans la discussion, avec photos et prix.</p>",
+      "f4": "<h3>Commander et réserver</h3><p>Utilisez les propres outils d'un commerce. Rien ne se passe tant que vous n'avez pas dit oui.</p>",
+      "privacy": "Votre position sert à une seule recherche et n'est jamais enregistrée. Chaque réponse est signée par le commerce dont elle provient (Ed25519).",
+      "footer": "Oasis transforme les sites web des commerces locaux en outils utilisables par les assistants IA.",
+      "tryChat": "Essayer le chat Oasis"
+    },
+    "it": {
+      "share": "Condividi",
+      "subtitle": "Trova, sfoglia e ordina dalle attività locali direttamente in ChatGPT e Claude.",
+      "server": "Server",
+      "transport": "Trasporto",
+      "auth": "Autenticazione",
+      "noAuth": "Non necessaria",
+      "worksWith": "Funziona con",
+      "anyClient": "Qualsiasi client MCP",
+      "connect": "Connetti",
+      "connectLede": "Scegli il tuo assistente. Copiamo per te l'indirizzo del server e apriamo le impostazioni dei connettori: incollalo lì e hai finito.",
+      "subChatgpt": "Impostazioni → Apps &amp; Connectors",
+      "ctaChatgpt": "Connetti a ChatGPT",
+      "subClaude": "Impostazioni → Connectors",
+      "ctaClaude": "Connetti a Claude",
+      "notListed": "Oasis non è ancora nelle directory delle app di ChatGPT o Claude, quindi lo aggiungi come <b>connettore personalizzato</b>. Ci vuole circa un minuto e i passaggi sono qui sotto.",
+      "howTo": "Come connettersi",
+      "gpt1": "Apri le <a class=\"link\" href=\"https://chatgpt.com/#settings/Connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"ChatGPT\">impostazioni di ChatGPT</a> e vai su <span class=\"chip\">Apps &amp; Connectors</span>.",
+      "gpt2": "In <span class=\"chip\">Advanced settings</span>, attiva la <span class=\"chip\">Developer mode</span>.",
+      "gpt3": "Fai clic su <span class=\"chip\">Create</span>, chiamalo <b>Oasis</b>, incolla l'indirizzo del server, scegli <span class=\"chip\">No authentication</span> e salva.",
+      "gpt4": "In una chat, scegli Oasis da <span class=\"chip\">+</span> → <span class=\"chip\">Developer mode</span>, poi chiedi quello che vuoi.",
+      "cl1": "Apri <a class=\"link\" href=\"https://claude.ai/settings/connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"Claude\">Impostazioni di Claude → Connectors</a>.",
+      "cl2": "Fai clic su <span class=\"chip\">Add custom connector</span>, chiamalo <b>Oasis</b> e incolla l'indirizzo del server.",
+      "cl3": "Fai clic su <span class=\"chip\">Add</span>. Funziona in Claude sul web, su desktop e su mobile.",
+      "cl4": "In una chat, controlla che Oasis sia attivo nel menu <span class=\"chip\">Search and tools</span>.",
+      "otherClients": "Claude Code e altri client MCP",
+      "jsonClients": "Client configurati con JSON:",
+      "tryIt": "Provalo",
+      "tryLede": "Una volta connesso Oasis, inizia con una di queste.",
+      "prompt": "Richiesta",
+      "openIn": "Apri in",
+      "can": "Cosa può fare Oasis",
+      "f1": "<h3>Trova nelle vicinanze</h3><p>I negozi, ristoranti, saloni e altro più vicini, intorno a te o a un luogo che indichi.</p>",
+      "f2": "<h3>Ricerca per significato</h3><p>Chiedi con parole tue, in qualsiasi lingua. Errori di battitura e plurali vanno bene.</p>",
+      "f3": "<h3>Sfoglia gli articoli</h3><p>Menu, prodotti e servizi come schede nella chat, con foto e prezzi.</p>",
+      "f4": "<h3>Ordina e prenota</h3><p>Usa gli strumenti dell'attività stessa. Non succede nulla finché non dici di sì.</p>",
+      "privacy": "La tua posizione viene usata per una sola ricerca e mai salvata. Ogni risposta è firmata dall'attività da cui proviene (Ed25519).",
+      "footer": "Oasis trasforma i siti web delle attività locali in strumenti che gli assistenti IA possono usare.",
+      "tryChat": "Prova la chat Oasis"
+    },
+    "de": {
+      "share": "Teilen",
+      "subtitle": "Lokale Geschäfte finden, durchstöbern und dort bestellen, direkt in ChatGPT und Claude.",
+      "server": "Server",
+      "transport": "Transport",
+      "auth": "Authentifizierung",
+      "noAuth": "Nicht nötig",
+      "worksWith": "Funktioniert mit",
+      "anyClient": "Jeder MCP-Client",
+      "connect": "Verbinden",
+      "connectLede": "Wählen Sie Ihren Assistenten. Wir kopieren die Serveradresse für Sie und öffnen dessen Connector-Einstellungen: dort einfügen, fertig.",
+      "subChatgpt": "Einstellungen → Apps &amp; Connectors",
+      "ctaChatgpt": "Mit ChatGPT verbinden",
+      "subClaude": "Einstellungen → Connectors",
+      "ctaClaude": "Mit Claude verbinden",
+      "notListed": "Oasis ist noch nicht in den App-Verzeichnissen von ChatGPT oder Claude, deshalb fügen Sie es als <b>benutzerdefinierten Connector</b> hinzu. Das dauert etwa eine Minute; die Schritte stehen unten.",
+      "howTo": "So verbinden Sie sich",
+      "gpt1": "Öffnen Sie die <a class=\"link\" href=\"https://chatgpt.com/#settings/Connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"ChatGPT\">ChatGPT-Einstellungen</a> und gehen Sie zu <span class=\"chip\">Apps &amp; Connectors</span>.",
+      "gpt2": "Aktivieren Sie unter <span class=\"chip\">Advanced settings</span> den <span class=\"chip\">Developer mode</span>.",
+      "gpt3": "Klicken Sie auf <span class=\"chip\">Create</span>, nennen Sie ihn <b>Oasis</b>, fügen Sie die Serveradresse ein, wählen Sie <span class=\"chip\">No authentication</span> und speichern Sie.",
+      "gpt4": "Wählen Sie in einem Chat Oasis unter <span class=\"chip\">+</span> → <span class=\"chip\">Developer mode</span> und legen Sie los.",
+      "cl1": "Öffnen Sie <a class=\"link\" href=\"https://claude.ai/settings/connectors\" target=\"_blank\" rel=\"noopener\" data-connect=\"Claude\">Claude-Einstellungen → Connectors</a>.",
+      "cl2": "Klicken Sie auf <span class=\"chip\">Add custom connector</span>, nennen Sie ihn <b>Oasis</b> und fügen Sie die Serveradresse ein.",
+      "cl3": "Klicken Sie auf <span class=\"chip\">Add</span>. Das funktioniert in Claude im Web, auf dem Desktop und mobil.",
+      "cl4": "Prüfen Sie in einem Chat, dass Oasis im Menü <span class=\"chip\">Search and tools</span> aktiviert ist.",
+      "otherClients": "Claude Code und andere MCP-Clients",
+      "jsonClients": "Clients mit JSON-Konfiguration:",
+      "tryIt": "Ausprobieren",
+      "tryLede": "Sobald Oasis verbunden ist, beginnen Sie mit einer dieser Fragen.",
+      "prompt": "Frage",
+      "openIn": "Öffnen in",
+      "can": "Was Oasis kann",
+      "f1": "<h3>In der Nähe finden</h3><p>Die nächsten Geschäfte, Restaurants, Salons und mehr, rund um Sie oder einen Ort Ihrer Wahl.</p>",
+      "f2": "<h3>Suche nach Bedeutung</h3><p>Fragen Sie in eigenen Worten, in jeder Sprache. Tippfehler und Mehrzahl sind kein Problem.</p>",
+      "f3": "<h3>Angebote durchstöbern</h3><p>Menüs, Produkte und Dienstleistungen als Karten im Chat, mit Fotos und Preisen.</p>",
+      "f4": "<h3>Bestellen und buchen</h3><p>Nutzen Sie die eigenen Tools eines Geschäfts. Nichts passiert, bevor Sie Ja sagen.</p>",
+      "privacy": "Ihr Standort wird für eine einzige Suche verwendet und nie gespeichert. Jede Antwort ist vom Geschäft signiert, von dem sie stammt (Ed25519).",
+      "footer": "Oasis macht Websites lokaler Geschäfte zu Tools, die KI-Assistenten nutzen können.",
+      "tryChat": "Oasis-Chat ausprobieren"
+    }
+  };
+  const UI = {
+    en: { copy: "Copy", copied: "Copied", copyFailed: "Copy failed", shareTitle: "Copy the link to this page", linkCopied: "Link to this page copied",
+          linkFailed: "Couldn't copy the link", addrCopied: "Address copied. Paste it in {app}'s connector settings.",
+          copyManual: "Copy the server address above and paste it in the connector settings.", light: "Light", dark: "Dark", system: "Same as your system",
+          themeTitle: "Theme: {label} (click to change)", language: "Language", docTitle: document.title,
+          prompts: ["What's the nearest coffee shop?", "Find me a vegan lunch near me", "Show me t-shirts I can order", "Book a haircut for Saturday morning"] },
+    ...{
+    "fr": {
+      "copy": "Copier",
+      "copied": "Copié",
+      "copyFailed": "Échec de la copie",
+      "shareTitle": "Copier le lien de cette page",
+      "linkCopied": "Lien de cette page copié",
+      "linkFailed": "Impossible de copier le lien",
+      "addrCopied": "Adresse copiée. Collez-la dans les réglages de connecteurs de {app}.",
+      "copyManual": "Copiez l'adresse du serveur ci-dessus et collez-la dans les réglages de connecteurs.",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Comme votre système",
+      "themeTitle": "Thème : {label} (cliquer pour changer)",
+      "language": "Langue",
+      "docTitle": "Oasis MCP · Commerces locaux dans ChatGPT et Claude",
+      "prompts": [
+        "Quel est le café le plus proche ?",
+        "Trouve-moi un déjeuner végan près de moi",
+        "Montre-moi des t-shirts que je peux commander",
+        "Réserve une coupe de cheveux pour samedi matin"
+      ]
+    },
+    "it": {
+      "copy": "Copia",
+      "copied": "Copiato",
+      "copyFailed": "Copia non riuscita",
+      "shareTitle": "Copia il link a questa pagina",
+      "linkCopied": "Link a questa pagina copiato",
+      "linkFailed": "Impossibile copiare il link",
+      "addrCopied": "Indirizzo copiato. Incollalo nelle impostazioni dei connettori di {app}.",
+      "copyManual": "Copia l'indirizzo del server qui sopra e incollalo nelle impostazioni dei connettori.",
+      "light": "Chiaro",
+      "dark": "Scuro",
+      "system": "Come il sistema",
+      "themeTitle": "Tema: {label} (clic per cambiare)",
+      "language": "Lingua",
+      "docTitle": "Oasis MCP · Attività locali in ChatGPT e Claude",
+      "prompts": [
+        "Qual è il bar più vicino?",
+        "Trovami un pranzo vegano vicino a me",
+        "Mostrami delle magliette che posso ordinare",
+        "Prenota un taglio di capelli per sabato mattina"
+      ]
+    },
+    "de": {
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copyFailed": "Kopieren fehlgeschlagen",
+      "shareTitle": "Link zu dieser Seite kopieren",
+      "linkCopied": "Link zu dieser Seite kopiert",
+      "linkFailed": "Link konnte nicht kopiert werden",
+      "addrCopied": "Adresse kopiert. Fügen Sie sie in den Connector-Einstellungen von {app} ein.",
+      "copyManual": "Kopieren Sie die Serveradresse oben und fügen Sie sie in den Connector-Einstellungen ein.",
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "Wie Ihr System",
+      "themeTitle": "Design: {label} (klicken zum Ändern)",
+      "language": "Sprache",
+      "docTitle": "Oasis MCP · Lokale Geschäfte in ChatGPT und Claude",
+      "prompts": [
+        "Wo ist das nächste Café?",
+        "Finde ein veganes Mittagessen in meiner Nähe",
+        "Zeig mir T-Shirts, die ich bestellen kann",
+        "Buche einen Haarschnitt für Samstagmorgen"
+      ]
+    }
+  },
+  };
+  const LANG_KEY = "oasis.lang";
+  const english = new Map([...document.querySelectorAll("[data-i18n]")].map((el) => [el, el.innerHTML]));
+  function detectLang() {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (UI[saved]) return saved;
+    for (const l of navigator.languages || [navigator.language]) if (UI[(l || "").slice(0, 2).toLowerCase()]) return l.slice(0, 2).toLowerCase();
+    return "en";
+  }
+  let lang = detectLang();
+  const L = (k, vars) => String((UI[lang] || UI.en)[k] ?? UI.en[k]).replace(/\{(\w+)\}/g, (m, v) => (vars && v in vars ? vars[v] : m));
+  const langSelect = document.getElementById("lang");
+
   document.querySelector("[data-copy]").addEventListener("click", async (e) => {
     const label = e.currentTarget.querySelector("span");
     const ok = await copy(url);
-    label.textContent = ok ? "Copied" : "Copy failed";
-    setTimeout(() => (label.textContent = "Copy"), 1800);
+    label.textContent = ok ? L("copied") : L("copyFailed");
+    setTimeout(() => (label.textContent = L("copy")), 1800);
   });
   document.querySelector("[data-copy-link]").addEventListener("click", async () => {
-    show((await copy(location.href)) ? "Link to this page copied" : "Couldn't copy the link");
+    show((await copy(location.href)) ? L("linkCopied") : L("linkFailed"));
   });
 
   // The link opens by itself (target=_blank); the click also copies the address to paste there.
-  document.querySelectorAll("[data-connect]").forEach((a) =>
-    a.addEventListener("click", () => {
-      copy(url).then((ok) => show(ok ? `Address copied. Paste it in ${a.dataset.connect}'s connector settings.` : "Copy the server address above and paste it in the connector settings."));
-    }),
-  );
+  // Delegated, because switching language redraws the step lists that hold some of these links.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("[data-connect]");
+    if (!a) return;
+    copy(url).then((ok) => show(ok ? L("addrCopied", { app: a.dataset.connect }) : L("copyManual")));
+  });
 
   // Theme: light → dark → system, shared with the Oasis app (same key).
   const KEY = "oasis.theme", NEXT = { light: "dark", dark: "system", system: "light" };
-  const LABEL = { light: "Light", dark: "Dark", system: "Same as your system" };
   const ICON = { light: "#i-sun", dark: "#i-moon", system: "#i-monitor" };
   const themeBtn = document.getElementById("theme");
   const media = matchMedia("(prefers-color-scheme: dark)");
@@ -453,7 +669,7 @@
     document.documentElement.classList.toggle("dark", dark);
     document.documentElement.style.colorScheme = dark ? "dark" : "light";
     themeBtn.querySelector("use").setAttribute("href", ICON[p]);
-    themeBtn.title = `Theme: ${LABEL[p]} (click to change)`;
+    themeBtn.title = L("themeTitle", { label: L(p) });
   }
   themeBtn.addEventListener("click", () => {
     const next = NEXT[pref()];
@@ -463,9 +679,10 @@
   media.addEventListener("change", apply);
   apply();
 
-  const prompts = ["What's the nearest coffee shop?", "Find me a vegan lunch near me", "Show me t-shirts I can order", "Book a haircut for Saturday morning"];
   const body = document.getElementById("prompts");
-  for (const p of prompts) {
+  function drawPrompts() {
+  body.replaceChildren();
+  for (const p of L("prompts")) {
     const q = encodeURIComponent(p);
     const tr = document.createElement("tr");
     tr.innerHTML = `<td class="prompt"></td><td>
@@ -474,6 +691,27 @@
     tr.querySelector(".prompt").textContent = p;
     body.append(tr);
   }
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    for (const [el, en] of english) el.innerHTML = lang !== "en" && T[lang] && T[lang][el.dataset.i18n] ? T[lang][el.dataset.i18n] : en;
+    document.title = L("docTitle");
+    document.querySelector("[data-copy] span").textContent = L("copy");
+    document.querySelector("[data-copy-link]").title = L("shareTitle");
+    langSelect.value = lang;
+    langSelect.setAttribute("aria-label", L("language"));
+    langSelect.parentElement.title = L("language");
+    document.getElementById("lang-code").textContent = lang.toUpperCase();
+    apply();
+    drawPrompts();
+  }
+  langSelect.addEventListener("change", () => {
+    lang = UI[langSelect.value] ? langSelect.value : "en";
+    localStorage.setItem(LANG_KEY, lang);
+    applyLang();
+  });
+  applyLang();
 </script>
 </body>
 </html>

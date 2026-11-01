@@ -85,6 +85,7 @@ How you work:
 - Opening hours: read every day. Say which days a place is closed; never say "daily" unless all seven days are open.
 
 Now: {now}.
+Language: {language}
 Visitor's location (where they are now; pass it to find_nearby as location): {location}.
 Businesses already found in this chat: {known}.
 
@@ -219,14 +220,24 @@ def _known_text(known: list[dict[str, str]]) -> str:
     return "; ".join(f"{k['name']} (business_id {k['business_id']})" for k in known[:20]) or "none yet"
 
 
-async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known: list[dict[str, str]], confirmed: dict[str, Any] | None) -> None:
+LANGUAGES = {"en": "English", "fr": "French", "it": "Italian", "de": "German"}
+
+
+def _language_text(language: str) -> str:
+    name = LANGUAGES.get(language)
+    if not name:
+        return "reply in the language the visitor writes in."
+    return f"the visitor chose {name} on the page. Reply in the language they write in; when that is unclear (a name, a short word), reply in {name}."
+
+
+async def _run(emit: Emit, messages: list[dict[str, str]], location: str, known: list[dict[str, str]], confirmed: dict[str, Any] | None, language: str = "") -> None:
     async with streamable_http_client(CLIENT_MCP_URL) as (read, write, *_):
         async with ClientSession(read, write) as session:
             await session.initialize()
             # show_items is for assistants that render MCP Apps; this page draws its own cards from call_business_tool.
             tools = [t for t in (await session.list_tools()).tools if t.name not in ("show_items", "product_photo")]
             names = {t.name for t in tools}
-            system = SYSTEM.format(now=_now(), location=location or "unknown (ask the visitor if you need it)", known=_known_text(known), tools=_tools_text(tools))
+            system = SYSTEM.format(now=_now(), language=_language_text(language), location=location or "unknown (ask the visitor if you need it)", known=_known_text(known), tools=_tools_text(tools))
             convo = _history(messages)
 
             if confirmed:
@@ -340,7 +351,8 @@ def _leaves(exc: BaseException) -> list[BaseException]:
 
 
 async def stream(
-    messages: list[dict[str, str]], location: str = "", known: list[dict[str, str]] | None = None, confirmed: dict[str, Any] | None = None
+    messages: list[dict[str, str]], location: str = "", known: list[dict[str, str]] | None = None, confirmed: dict[str, Any] | None = None,
+    language: str = "",
 ) -> AsyncIterator[dict[str, Any]]:
     """Runs the agent in its own task (the MCP client's task groups must not span a generator's
     yields) and hands its events over a queue, ending with {"type": "done"}."""
@@ -351,7 +363,7 @@ async def stream(
 
     async def worker() -> None:
         try:
-            await _run(emit, messages, location, known or [], confirmed)
+            await _run(emit, messages, location, known or [], confirmed, language)
         except ChatError as exc:
             await queue.put({"type": "error", "message": str(exc)})
         except Exception as exc:  # noqa: BLE001 - MCP errors arrive as exception groups

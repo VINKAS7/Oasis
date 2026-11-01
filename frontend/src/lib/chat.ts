@@ -88,10 +88,10 @@ export function orderStatus(c: ChatCatalog): Promise<{ status: ChatOrder["status
   return api(`/api/chat/orders/${o.order_id}?${q}`);
 }
 
-export function money(amount: number | null | undefined, currency: string): string {
+export function money(amount: number | null | undefined, currency: string, locale?: string): string {
   if (amount === null || amount === undefined) return "";
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "CHF" }).format(amount);
+    return new Intl.NumberFormat(locale, { style: "currency", currency: currency || "CHF" }).format(amount);
   } catch {
     return `${currency} ${amount.toFixed(2)}`.trim();
   }

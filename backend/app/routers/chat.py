@@ -54,6 +54,8 @@ class KnownBusiness(BaseModel):
 class ChatIn(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=30)
     location: str = Field(default="", max_length=200)
+    # The language picked on the chat page (en, fr, it, de): what to answer in when the visitor's own is unclear.
+    language: Literal["", "en", "fr", "it", "de"] = ""
     # Businesses found earlier in this chat, so follow-ups ("their menu?") use the real business_id.
     businesses: list[KnownBusiness] = Field(default_factory=list, max_length=20)
 
@@ -78,7 +80,7 @@ async def chat(body: ChatIn, request: Request) -> StreamingResponse:
     if body.messages[-1].role != "user":
         raise HTTPException(400, "The last message must be the visitor's")
     _rate_limit(_visitor(request))
-    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), [b.model_dump() for b in body.businesses]))
+    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), [b.model_dump() for b in body.businesses], language=body.language))
 
 
 @router.post("/confirm")
@@ -87,7 +89,7 @@ async def confirm(body: ConfirmIn, request: Request) -> StreamingResponse:
     _rate_limit(_visitor(request))
     confirmed = {"business_id": body.business_id, "tool": body.tool, "inputs": body.inputs}
     known = [b.model_dump() for b in body.businesses]
-    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), known, confirmed=confirmed))
+    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), known, confirmed=confirmed, language=body.language))
 
 
 class OrderLine(BaseModel):

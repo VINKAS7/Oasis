@@ -124,6 +124,270 @@
   const SHOWN = 9;
   const app = document.getElementById("app");
 
+  // ---- language: the cards follow the assistant's locale (English, French, Italian or German) ----
+  const STRINGS = {
+    "fr": {
+      "The assistant refused the request.": "L'assistant a refusé la demande.",
+      "That didn't work. Try again.": "Cela n'a pas fonctionné. Réessayez.",
+      "Nothing to show.": "Rien à afficher.",
+      "No picture": "Pas de photo",
+      "Photo {n}": "Photo {n}",
+      " (sold out)": " (épuisé)",
+      "Sold out in {v}": "Épuisé en {v}",
+      "Sold out": "Épuisé",
+      "Only {n} left": "Plus que {n}",
+      "One less": "Un de moins",
+      "One more": "Un de plus",
+      "+ Add": "+ Ajouter",
+      "Open ↗": "Ouvrir ↗",
+      "Ask about this": "Poser une question",
+      "price on request": "prix sur demande",
+      "Your order from {b}": "Votre commande chez {b}",
+      "Total": "Total",
+      "confirmed by the business": "confirmé par le commerce",
+      "Your name": "Votre nom",
+      "Phone or email": "Téléphone ou e-mail",
+      "When? e.g. today 19:00": "Quand ? p. ex. aujourd'hui 19:00",
+      "Note (optional)": "Remarque (facultatif)",
+      "{b} confirms or declines your order; you'll see the answer here. Nothing is paid now.": "{b} accepte ou refuse votre commande ; la réponse s'affichera ici. Rien n'est payé maintenant.",
+      "Sending…": "Envoi…",
+      "Send order": "Envoyer la commande",
+      "Back": "Retour",
+      "{b} accepted your order": "{b} a accepté votre commande",
+      "{b} declined your order": "{b} a refusé votre commande",
+      "Sent to {b}, waiting for their answer…": "Envoyée à {b}, en attente de leur réponse…",
+      "Check now": "Vérifier maintenant",
+      "Online": "En ligne",
+      "open then": "ouvert à ce moment-là",
+      "Map: {b}": "Carte : {b}",
+      "Locating…": "Localisation…",
+      "Route from my location": "Itinéraire depuis ma position",
+      "Open in Google Maps ↗": "Ouvrir dans Google Maps ↗",
+      "Opening…": "Ouverture…",
+      "Show items": "Voir les articles",
+      "Hide map": "Masquer la carte",
+      "Map": "Carte",
+      "Directions ↗": "Itinéraire ↗",
+      "Website ↗": "Site web ↗",
+      "places": "lieux",
+      "Find the nearest {w}": "Trouver le plus proche : {w}",
+      "Share your location so Oasis can find the closest places. It's used for this search only and never stored.": "Partagez votre position pour qu'Oasis trouve les lieux les plus proches. Elle ne sert qu'à cette recherche et n'est jamais enregistrée.",
+      "Use my location": "Utiliser ma position",
+      "Or type a street, area or city": "Ou saisissez une rue, un quartier ou une ville",
+      "or type a street, area or city": "ou saisissez une rue, un quartier ou une ville",
+      "Your street, area or city": "Votre rue, quartier ou ville",
+      "Search": "Rechercher",
+      "Sort by distance": "Trier par distance",
+      "Nearest {w}": "Au plus près : {w}",
+      "Nearest": "Au plus près",
+      "near {p}": "près de {p}",
+      " (approximate)": " (approximatif)",
+      "{n} result": "{n} résultat",
+      "{n} results": "{n} résultats",
+      " for “{w}”": " pour « {w} »",
+      " · not sorted by distance": " · non triés par distance",
+      "Nothing within {km} km, so these are the closest.": "Rien dans un rayon de {km} km, voici donc les plus proches.",
+      "No place near you offers that yet.": "Aucun lieu près de vous ne propose cela pour l'instant.",
+      "No local place offers that yet.": "Aucun lieu local ne propose cela pour l'instant.",
+      "No business offers that yet.": "Aucun commerce ne propose cela pour l'instant.",
+      "Also online": "Aussi en ligne",
+      "Your location is used for this search only and never stored.": "Votre position ne sert qu'à cette recherche et n'est jamais enregistrée.",
+      "This app can't read your location here. Type a street, area or city instead.": "Cette app ne peut pas lire votre position ici. Saisissez plutôt une rue, un quartier ou une ville.",
+      "Your location": "Votre position",
+      "Location access is blocked here. Type a street, area or city instead.": "L'accès à la position est bloqué ici. Saisissez plutôt une rue, un quartier ou une ville.",
+      "Couldn't get your location. Type a street, area or city instead.": "Impossible d'obtenir votre position. Saisissez plutôt une rue, un quartier ou une ville.",
+      "Items": "Articles",
+      "← Back": "← Retour",
+      "No items right now.": "Aucun article pour le moment.",
+      "{n} item": "{n} article",
+      "{n} items": "{n} articles",
+      "Show everything": "Tout afficher",
+      "Show fewer": "Afficher moins",
+      "Show all {n}": "Afficher les {n}",
+      "{b} doesn't take orders through Oasis. Contact them directly to order.": "{b} ne prend pas de commandes via Oasis. Contactez-les directement pour commander.",
+      "Your order": "Votre commande",
+      "Review order": "Vérifier la commande",
+      "Tell me more about “{item}” from {b}.": "Dis-m'en plus sur « {item} » de {b}.",
+      "Type a street, area or city.": "Saisissez une rue, un quartier ou une ville."
+    },
+    "it": {
+      "The assistant refused the request.": "L'assistente ha rifiutato la richiesta.",
+      "That didn't work. Try again.": "Non ha funzionato. Riprova.",
+      "Nothing to show.": "Niente da mostrare.",
+      "No picture": "Nessuna foto",
+      "Photo {n}": "Foto {n}",
+      " (sold out)": " (esaurito)",
+      "Sold out in {v}": "Esaurito in {v}",
+      "Sold out": "Esaurito",
+      "Only {n} left": "Solo {n} rimasti",
+      "One less": "Uno in meno",
+      "One more": "Uno in più",
+      "+ Add": "+ Aggiungi",
+      "Open ↗": "Apri ↗",
+      "Ask about this": "Chiedi di questo",
+      "price on request": "prezzo su richiesta",
+      "Your order from {b}": "Il tuo ordine da {b}",
+      "Total": "Totale",
+      "confirmed by the business": "confermato dall'attività",
+      "Your name": "Il tuo nome",
+      "Phone or email": "Telefono o e-mail",
+      "When? e.g. today 19:00": "Quando? ad es. oggi alle 19:00",
+      "Note (optional)": "Nota (facoltativa)",
+      "{b} confirms or declines your order; you'll see the answer here. Nothing is paid now.": "{b} conferma o rifiuta il tuo ordine; vedrai la risposta qui. Non si paga nulla ora.",
+      "Sending…": "Invio…",
+      "Send order": "Invia ordine",
+      "Back": "Indietro",
+      "{b} accepted your order": "{b} ha accettato il tuo ordine",
+      "{b} declined your order": "{b} ha rifiutato il tuo ordine",
+      "Sent to {b}, waiting for their answer…": "Inviato a {b}, in attesa della risposta…",
+      "Check now": "Controlla ora",
+      "Online": "Online",
+      "open then": "aperto a quell'ora",
+      "Map: {b}": "Mappa: {b}",
+      "Locating…": "Localizzazione…",
+      "Route from my location": "Percorso dalla mia posizione",
+      "Open in Google Maps ↗": "Apri in Google Maps ↗",
+      "Opening…": "Apertura…",
+      "Show items": "Mostra articoli",
+      "Hide map": "Nascondi mappa",
+      "Map": "Mappa",
+      "Directions ↗": "Indicazioni ↗",
+      "Website ↗": "Sito web ↗",
+      "places": "posti",
+      "Find the nearest {w}": "Trova il più vicino: {w}",
+      "Share your location so Oasis can find the closest places. It's used for this search only and never stored.": "Condividi la tua posizione così Oasis trova i posti più vicini. Viene usata solo per questa ricerca e mai salvata.",
+      "Use my location": "Usa la mia posizione",
+      "Or type a street, area or city": "Oppure scrivi una via, una zona o una città",
+      "or type a street, area or city": "oppure scrivi una via, una zona o una città",
+      "Your street, area or city": "La tua via, zona o città",
+      "Search": "Cerca",
+      "Sort by distance": "Ordina per distanza",
+      "Nearest {w}": "Più vicini: {w}",
+      "Nearest": "Più vicini",
+      "near {p}": "vicino a {p}",
+      " (approximate)": " (approssimativa)",
+      "{n} result": "{n} risultato",
+      "{n} results": "{n} risultati",
+      " for “{w}”": " per «{w}»",
+      " · not sorted by distance": " · non ordinati per distanza",
+      "Nothing within {km} km, so these are the closest.": "Niente entro {km} km, quindi ecco i più vicini.",
+      "No place near you offers that yet.": "Nessun posto vicino a te lo offre ancora.",
+      "No local place offers that yet.": "Nessun posto locale lo offre ancora.",
+      "No business offers that yet.": "Nessuna attività lo offre ancora.",
+      "Also online": "Anche online",
+      "Your location is used for this search only and never stored.": "La tua posizione viene usata solo per questa ricerca e mai salvata.",
+      "This app can't read your location here. Type a street, area or city instead.": "Questa app non può leggere la tua posizione qui. Scrivi invece una via, una zona o una città.",
+      "Your location": "La tua posizione",
+      "Location access is blocked here. Type a street, area or city instead.": "L'accesso alla posizione è bloccato qui. Scrivi invece una via, una zona o una città.",
+      "Couldn't get your location. Type a street, area or city instead.": "Impossibile ottenere la tua posizione. Scrivi invece una via, una zona o una città.",
+      "Items": "Articoli",
+      "← Back": "← Indietro",
+      "No items right now.": "Nessun articolo al momento.",
+      "{n} item": "{n} articolo",
+      "{n} items": "{n} articoli",
+      "Show everything": "Mostra tutto",
+      "Show fewer": "Mostra meno",
+      "Show all {n}": "Mostra tutti i {n}",
+      "{b} doesn't take orders through Oasis. Contact them directly to order.": "{b} non accetta ordini tramite Oasis. Contattali direttamente per ordinare.",
+      "Your order": "Il tuo ordine",
+      "Review order": "Controlla l'ordine",
+      "Tell me more about “{item}” from {b}.": "Dimmi di più su «{item}» di {b}.",
+      "Type a street, area or city.": "Scrivi una via, una zona o una città."
+    },
+    "de": {
+      "The assistant refused the request.": "Der Assistent hat die Anfrage abgelehnt.",
+      "That didn't work. Try again.": "Das hat nicht geklappt. Bitte erneut versuchen.",
+      "Nothing to show.": "Nichts anzuzeigen.",
+      "No picture": "Kein Bild",
+      "Photo {n}": "Foto {n}",
+      " (sold out)": " (ausverkauft)",
+      "Sold out in {v}": "Ausverkauft in {v}",
+      "Sold out": "Ausverkauft",
+      "Only {n} left": "Nur noch {n}",
+      "One less": "Eins weniger",
+      "One more": "Eins mehr",
+      "+ Add": "+ Hinzufügen",
+      "Open ↗": "Öffnen ↗",
+      "Ask about this": "Danach fragen",
+      "price on request": "Preis auf Anfrage",
+      "Your order from {b}": "Ihre Bestellung bei {b}",
+      "Total": "Total",
+      "confirmed by the business": "wird vom Geschäft bestätigt",
+      "Your name": "Ihr Name",
+      "Phone or email": "Telefon oder E-Mail",
+      "When? e.g. today 19:00": "Wann? z. B. heute 19:00",
+      "Note (optional)": "Notiz (optional)",
+      "{b} confirms or declines your order; you'll see the answer here. Nothing is paid now.": "{b} nimmt Ihre Bestellung an oder lehnt sie ab; die Antwort sehen Sie hier. Jetzt wird nichts bezahlt.",
+      "Sending…": "Wird gesendet…",
+      "Send order": "Bestellung senden",
+      "Back": "Zurück",
+      "{b} accepted your order": "{b} hat Ihre Bestellung angenommen",
+      "{b} declined your order": "{b} hat Ihre Bestellung abgelehnt",
+      "Sent to {b}, waiting for their answer…": "An {b} gesendet, warte auf Antwort…",
+      "Check now": "Jetzt prüfen",
+      "Online": "Online",
+      "open then": "dann geöffnet",
+      "Map: {b}": "Karte: {b}",
+      "Locating…": "Standort wird ermittelt…",
+      "Route from my location": "Route von meinem Standort",
+      "Open in Google Maps ↗": "In Google Maps öffnen ↗",
+      "Opening…": "Wird geöffnet…",
+      "Show items": "Angebot zeigen",
+      "Hide map": "Karte ausblenden",
+      "Map": "Karte",
+      "Directions ↗": "Route ↗",
+      "Website ↗": "Website ↗",
+      "places": "Orte",
+      "Find the nearest {w}": "Nächstgelegene finden: {w}",
+      "Share your location so Oasis can find the closest places. It's used for this search only and never stored.": "Teilen Sie Ihren Standort, damit Oasis die nächsten Orte findet. Er wird nur für diese Suche verwendet und nie gespeichert.",
+      "Use my location": "Meinen Standort verwenden",
+      "Or type a street, area or city": "Oder Strasse, Quartier oder Stadt eingeben",
+      "or type a street, area or city": "oder Strasse, Quartier oder Stadt eingeben",
+      "Your street, area or city": "Ihre Strasse, Ihr Quartier oder Ihre Stadt",
+      "Search": "Suchen",
+      "Sort by distance": "Nach Entfernung sortieren",
+      "Nearest {w}": "Am nächsten: {w}",
+      "Nearest": "Am nächsten",
+      "near {p}": "bei {p}",
+      " (approximate)": " (ungefähr)",
+      "{n} result": "{n} Ergebnis",
+      "{n} results": "{n} Ergebnisse",
+      " for “{w}”": " für «{w}»",
+      " · not sorted by distance": " · nicht nach Entfernung sortiert",
+      "Nothing within {km} km, so these are the closest.": "Nichts im Umkreis von {km} km, deshalb hier die nächstgelegenen.",
+      "No place near you offers that yet.": "Noch kein Ort in Ihrer Nähe bietet das an.",
+      "No local place offers that yet.": "Noch kein lokaler Ort bietet das an.",
+      "No business offers that yet.": "Noch kein Geschäft bietet das an.",
+      "Also online": "Auch online",
+      "Your location is used for this search only and never stored.": "Ihr Standort wird nur für diese Suche verwendet und nie gespeichert.",
+      "This app can't read your location here. Type a street, area or city instead.": "Diese App kann Ihren Standort hier nicht lesen. Geben Sie stattdessen eine Strasse, ein Quartier oder eine Stadt ein.",
+      "Your location": "Ihr Standort",
+      "Location access is blocked here. Type a street, area or city instead.": "Der Standortzugriff ist hier blockiert. Geben Sie stattdessen eine Strasse, ein Quartier oder eine Stadt ein.",
+      "Couldn't get your location. Type a street, area or city instead.": "Standort konnte nicht ermittelt werden. Geben Sie stattdessen eine Strasse, ein Quartier oder eine Stadt ein.",
+      "Items": "Angebot",
+      "← Back": "← Zurück",
+      "No items right now.": "Zurzeit keine Artikel.",
+      "{n} item": "{n} Artikel",
+      "{n} items": "{n} Artikel",
+      "Show everything": "Alles anzeigen",
+      "Show fewer": "Weniger anzeigen",
+      "Show all {n}": "Alle {n} anzeigen",
+      "{b} doesn't take orders through Oasis. Contact them directly to order.": "{b} nimmt keine Bestellungen über Oasis an. Kontaktieren Sie das Geschäft direkt.",
+      "Your order": "Ihre Bestellung",
+      "Review order": "Bestellung prüfen",
+      "Tell me more about “{item}” from {b}.": "Erzähl mir mehr über «{item}» von {b}.",
+      "Type a street, area or city.": "Geben Sie eine Strasse, ein Quartier oder eine Stadt ein."
+    }
+  };
+  const pickLang = (l) => { const c = String(l || "").slice(0, 2).toLowerCase(); return STRINGS[c] ? c : "en"; };
+  let lang = pickLang(navigator.language);
+  document.documentElement.lang = lang;
+  // English text is the key; {name} placeholders are filled from vars (escape them first when they go into HTML).
+  const tr = (text, vars) => {
+    const t = (STRINGS[lang] && STRINGS[lang][text]) || text;
+    return vars ? t.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : t;
+  };
+
   // ---- JSON-RPC over postMessage with the assistant (the host) ----
   let nextId = 1;
   const pending = new Map();
@@ -143,7 +407,7 @@
       const p = pending.get(m.id);
       if (!p) return;
       pending.delete(m.id);
-      m.error ? p.reject(new Error(m.error.message || "The assistant refused the request.")) : p.resolve(m.result);
+      m.error ? p.reject(new Error(m.error.message || tr("The assistant refused the request."))) : p.resolve(m.result);
       return;
     }
     if (m.method === "ui/notifications/tool-result") { backTo = null; show(m.params); }
@@ -153,6 +417,8 @@
 
   function applyContext(ctx) {
     if (!ctx) return;
+    // The assistant's language (en-US, fr-CH...): the cards follow it. English for anything else.
+    if (ctx.locale && pickLang(ctx.locale) !== lang) { lang = pickLang(ctx.locale); document.documentElement.lang = lang; render(); }
     if (ctx.theme) document.documentElement.classList.toggle("dark", ctx.theme === "dark");
     // The assistant's own fonts (--font-sans...), so the cards look native in its conversation.
     const vars = ctx.styles && ctx.styles.variables;
@@ -174,7 +440,7 @@
     }
     const r = await request("tools/call", { name, arguments: args });
     const data = (r && r.structuredContent) || {};
-    if ((r && r.isError) || data.ok === false) throw new Error(data.message || "That didn't work. Try again.");
+    if ((r && r.isError) || data.ok === false) throw new Error(data.message || tr("That didn't work. Try again."));
     return data;
   }
   function openLink(url) {
@@ -214,7 +480,7 @@
       render();
       return;
     }
-    if (sc.ok === false) { data = null; places = null; app.innerHTML = `<p class="empty">${esc(sc.message || "Nothing to show.")}</p>`; return; }
+    if (sc.ok === false) { data = null; places = null; app.innerHTML = `<p class="empty">${esc(sc.message || tr("Nothing to show."))}</p>`; return; }
     data = sc; places = null;
     cart = {}; step = "pick"; order = null; error = ""; showAll = false; chosen = {}; photoAt = {};
     render();
@@ -224,7 +490,7 @@
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   function money(amount, currency) {
     if (amount === null || amount === undefined) return "";
-    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "CHF" }).format(amount); }
+    try { return new Intl.NumberFormat(lang, { style: "currency", currency: currency || "CHF" }).format(amount); }
     catch { return `${currency || ""} ${Number(amount).toFixed(2)}`.trim(); }
   }
   const items = () => ((data && data.result && data.result.items) || []);
@@ -278,8 +544,8 @@
     const src = photoData[`${i.id}:${at}`] || photos[at];
     let pic = "";
     if (pictures) {
-      pic = src ? `<img class="pic" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback data-item="${esc(i.id)}" data-index="${at}">` : `<div class="nopic">No picture</div>`;
-      if (photos.length > 1) pic += `<div class="dots">${photos.map((_, n) => `<button data-photo="${esc(i.id)}" data-n="${n}" class="${n === at ? "on" : ""}" aria-label="Photo ${n + 1}"></button>`).join("")}</div>`;
+      pic = src ? `<img class="pic" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback data-item="${esc(i.id)}" data-index="${at}">` : `<div class="nopic">${tr("No picture")}</div>`;
+      if (photos.length > 1) pic += `<div class="dots">${photos.map((_, n) => `<button data-photo="${esc(i.id)}" data-n="${n}" class="${n === at ? "on" : ""}" aria-label="${tr("Photo {n}", { n: n + 1 })}"></button>`).join("")}</div>`;
     }
     // Sizes, colours...: one picker per option; a value with nothing left in any combination is marked.
     let opts = "";
@@ -288,20 +554,20 @@
       opts = `<div class="opts">${axes(i).map((a, n) => `<select data-opt="${esc(i.id)}" data-axis="${esc(a)}" aria-label="${esc(a)}">${i.options[a].map((v) => {
         const any = Object.entries(i.available || {}).some(([k, c]) => k.split("/")[n] === v && c > 0);
         const out = i.available && Object.keys(i.available).length && !any;
-        return `<option value="${esc(v)}"${parts[n] === v ? " selected" : ""}>${esc(v)}${out ? " (sold out)" : ""}</option>`;
+        return `<option value="${esc(v)}"${parts[n] === v ? " selected" : ""}>${esc(v)}${out ? tr(" (sold out)") : ""}</option>`;
       }).join("")}</select>`).join("")}</div>`;
     }
     const left = stockOf(i, variant);
-    const stock = left === null ? "" : left <= 0 ? `<span class="stock out">Sold out${variant ? ` in ${esc(label(variant))}` : ""}</span>`
-      : left <= 3 ? `<span class="stock low">Only ${left} left</span>` : "";
+    const stock = left === null ? "" : left <= 0 ? `<span class="stock out">${variant ? tr("Sold out in {v}", { v: esc(label(variant)) }) : tr("Sold out")}</span>`
+      : left <= 3 ? `<span class="stock low">${tr("Only {n} left", { n: left })}</span>` : "";
     let pick = "";
     if (canOrder() && !(left !== null && left <= 0)) {
       pick = q
-        ? `<span class="stepper"><button data-qty="${esc(key)}" data-d="-1" aria-label="One less">−</button><span>${q}</span><button data-qty="${esc(key)}" data-d="1" data-max="${left === null ? 20 : left}" aria-label="One more">+</button></span>`
-        : `<button class="chip" data-qty="${esc(key)}" data-d="1" data-max="${left === null ? 20 : left}">+ Add</button>`;
+        ? `<span class="stepper"><button data-qty="${esc(key)}" data-d="-1" aria-label="${tr("One less")}">−</button><span>${q}</span><button data-qty="${esc(key)}" data-d="1" data-max="${left === null ? 20 : left}" aria-label="${tr("One more")}">+</button></span>`
+        : `<button class="chip" data-qty="${esc(key)}" data-d="1" data-max="${left === null ? 20 : left}">${tr("+ Add")}</button>`;
     }
-    const open = i.url ? `<button class="link" data-open="${esc(i.url)}">Open ↗</button>` : "";
-    const askBtn = `<button class="link" data-ask="${esc(i.name)}">Ask about this</button>`;
+    const open = i.url ? `<button class="link" data-open="${esc(i.url)}">${tr("Open ↗")}</button>` : "";
+    const askBtn = `<button class="link" data-ask="${esc(i.name)}">${tr("Ask about this")}</button>`;
     return `<div class="card${inCart(i.id) ? " picked" : ""}">${pic}<div class="body">
       <div class="row"><span class="name">${esc(i.name)}</span>${price}</div>
       ${details(i)}
@@ -316,31 +582,30 @@
       const [id, variant] = splitKey(k);
       const i = byId(id);
       if (!i) return "";
-      return `<li><span>${q}× ${esc(i.name)}${variant ? ` (${esc(label(variant))})` : ""}</span><span>${esc(money(i.amount === null ? null : i.amount * q, i.currency) || "price on request")}</span></li>`;
+      return `<li><span>${q}× ${esc(i.name)}${variant ? ` (${esc(label(variant))})` : ""}</span><span>${esc(money(i.amount === null ? null : i.amount * q, i.currency) || tr("price on request"))}</span></li>`;
     }).join("");
-    return `<form class="panel" id="review"><h4>Your order from ${esc(data.business)}</h4>
+    return `<form class="panel" id="review"><h4>${tr("Your order from {b}", { b: esc(data.business) })}</h4>
       <ul class="lines">${lines}</ul>
-      <div class="total"><span>Total</span><span>${total === null ? "confirmed by the business" : esc(money(total, currency))}</span></div>
+      <div class="total"><span>${tr("Total")}</span><span>${total === null ? tr("confirmed by the business") : esc(money(total, currency))}</span></div>
       <div class="fields">
-        <input name="customer_name" required maxlength="80" placeholder="Your name" value="${esc(form.customer_name)}">
-        <input name="customer_contact" required maxlength="120" placeholder="Phone or email" value="${esc(form.customer_contact)}">
-        <input name="pickup_time" maxlength="40" placeholder="When? e.g. today 19:00" value="${esc(form.pickup_time)}">
-        <input name="note" maxlength="300" placeholder="Note (optional)" value="${esc(form.note)}">
+        <input name="customer_name" required maxlength="80" placeholder="${tr("Your name")}" value="${esc(form.customer_name)}">
+        <input name="customer_contact" required maxlength="120" placeholder="${tr("Phone or email")}" value="${esc(form.customer_contact)}">
+        <input name="pickup_time" maxlength="40" placeholder="${tr("When? e.g. today 19:00")}" value="${esc(form.pickup_time)}">
+        <input name="note" maxlength="300" placeholder="${tr("Note (optional)")}" value="${esc(form.note)}">
       </div>
       ${error ? `<div class="error">${esc(error)}</div>` : ""}
-      <p class="note">${esc(data.business)} confirms or declines your order; you'll see the answer here. Nothing is paid now.</p>
-      <div class="buttons"><button class="primary" type="submit" ${busy ? "disabled" : ""}>${busy ? "Sending…" : "Send order"}</button>
-      <button class="secondary" type="button" data-back ${busy ? "disabled" : ""}>Back</button></div></form>`;
+      <p class="note">${tr("{b} confirms or declines your order; you'll see the answer here. Nothing is paid now.", { b: esc(data.business) })}</p>
+      <div class="buttons"><button class="primary" type="submit" ${busy ? "disabled" : ""}>${busy ? tr("Sending…") : tr("Send order")}</button>
+      <button class="secondary" type="button" data-back ${busy ? "disabled" : ""}>${tr("Back")}</button></div></form>`;
   }
 
   function statusPanel() {
     const o = order;
-    const title = o.status === "accepted" ? `${data.business} accepted your order`
-      : o.status === "declined" ? `${data.business} declined your order` : `Sent to ${data.business}, waiting for their answer…`;
+    const title = tr(o.status === "accepted" ? "{b} accepted your order" : o.status === "declined" ? "{b} declined your order" : "Sent to {b}, waiting for their answer…", { b: data.business });
     const what = (o.lines || []).map((l) => `${l.quantity}× ${l.name}`).join(", ") + (o.total !== null && o.total !== undefined ? ` · ${money(o.total, o.currency)}` : "");
     return `<div class="panel status ${esc(o.status)}"><div class="title">${esc(title)}</div><p>${esc(what)}</p>
       ${o.owner_note ? `<p>“${esc(o.owner_note)}”</p>` : ""}
-      ${o.status === "pending" ? `<div class="buttons"><button class="secondary" data-check ${busy ? "disabled" : ""}>Check now</button></div>` : ""}
+      ${o.status === "pending" ? `<div class="buttons"><button class="secondary" data-check ${busy ? "disabled" : ""}>${tr("Check now")}</button></div>` : ""}
       ${error ? `<div class="error">${esc(error)}</div>` : ""}</div>`;
   }
 
@@ -360,15 +625,15 @@
     const id = esc(b.business_id);
     const located = b.lat !== null && b.lat !== undefined && b.lng !== null && b.lng !== undefined;
     const open = selected === b.business_id && located;
-    const dist = typeof b.distance_km === "number" ? `<span class="dist">${km(b.distance_km)}</span>` : b.online_only ? `<span class="dist">Online</span>` : "";
-    const when = b.open_at_requested_time === true ? " · open then" : "";
+    const dist = typeof b.distance_km === "number" ? `<span class="dist">${km(b.distance_km)}</span>` : b.online_only ? `<span class="dist">${tr("Online")}</span>` : "";
+    const when = b.open_at_requested_time === true ? ` · ${tr("open then")}` : "";
     const hits = (b.matching_items || []).map((i) => `<span class="mi">${esc(i.name)}${i.price ? ` · ${esc(i.price)}` : ""}</span>`).join("");
     let map = "";
     if (open) {
-      map = `<div class="map"><iframe src="${esc(mapSrc(b))}" title="Map: ${esc(b.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      map = `<div class="map"><iframe src="${esc(mapSrc(b))}" title="${tr("Map: {b}", { b: esc(b.name) })}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
         <div class="maprow"><span class="tags">${me ? `${esc(me.label)} → ${esc(b.name)}` : esc(b.address || b.name)}</span>
-        <span>${me ? "" : `<button class="link" data-route="${id}" ${locating ? "disabled" : ""}>${locating ? "Locating…" : "Route from my location"}</button> `}
-        <button class="link" data-dir="${id}">Open in Google Maps ↗</button></span></div></div>
+        <span>${me ? "" : `<button class="link" data-route="${id}" ${locating ? "disabled" : ""}>${locating ? tr("Locating…") : tr("Route from my location")}</button> `}
+        <button class="link" data-dir="${id}">${tr("Open in Google Maps ↗")}</button></span></div></div>
         ${locError ? `<div class="error">${esc(locError)}</div>` : ""}`;
     }
     return `<div class="place${open ? " picked" : ""}">
@@ -376,28 +641,28 @@
       <div class="tags">${esc(b.kind)}${b.address ? ` · ${esc(b.address)}` : ""}${when}</div>
       ${b.description ? `<div class="desc">${esc(b.description)}</div>` : ""}
       ${hits ? `<div class="mis">${hits}</div>` : ""}
-      <div class="actions"><button class="chip" data-items="${id}" ${opening ? "disabled" : ""}>${opening === b.business_id ? "Opening…" : "Show items"}</button>
-        ${located ? `<button class="chip" data-map="${id}">${open ? "Hide map" : "Map"}</button><button class="link" data-dir="${id}">Directions ↗</button>` : ""}
-        ${b.online_only && b.website ? `<button class="link" data-open="${esc(b.website)}">Website ↗</button>` : ""}</div>
+      <div class="actions"><button class="chip" data-items="${id}" ${opening ? "disabled" : ""}>${opening === b.business_id ? tr("Opening…") : tr("Show items")}</button>
+        ${located ? `<button class="chip" data-map="${id}">${open ? tr("Hide map") : tr("Map")}</button><button class="link" data-dir="${id}">${tr("Directions ↗")}</button>` : ""}
+        ${b.online_only && b.website ? `<button class="link" data-open="${esc(b.website)}">${tr("Website ↗")}</button>` : ""}</div>
       ${map}</div>`;
   }
 
   function locatePanel() {
-    const what = places.query || places.type || "places";
-    return `<form class="panel" id="where"><h4>Find the nearest ${esc(what)}</h4>
-      <p class="note" style="margin-top:0">Share your location so Oasis can find the closest places. It's used for this search only and never stored.</p>
-      <div class="buttons"><button class="primary" type="button" data-locate ${locating ? "disabled" : ""}>${locating ? "Locating…" : "Use my location"}</button></div>
-      <div class="inline"><input name="where" maxlength="120" placeholder="Or type a street, area or city" aria-label="Your street, area or city" value="${esc(where)}">
-        <button class="secondary" type="submit" ${locating ? "disabled" : ""}>Search</button></div>
+    const what = places.query || places.type || tr("places");
+    return `<form class="panel" id="where"><h4>${tr("Find the nearest {w}", { w: esc(what) })}</h4>
+      <p class="note" style="margin-top:0">${tr("Share your location so Oasis can find the closest places. It's used for this search only and never stored.")}</p>
+      <div class="buttons"><button class="primary" type="button" data-locate ${locating ? "disabled" : ""}>${locating ? tr("Locating…") : tr("Use my location")}</button></div>
+      <div class="inline"><input name="where" maxlength="120" placeholder="${tr("Or type a street, area or city")}" aria-label="${tr("Your street, area or city")}" value="${esc(where)}">
+        <button class="secondary" type="submit" ${locating ? "disabled" : ""}>${tr("Search")}</button></div>
       ${locError ? `<div class="error">${esc(locError)}</div>` : ""}</form>`;
   }
 
   // Above results found without a location: share it or type a place to sort them nearest first.
   function sortBar() {
-    return `<form class="sortbar" id="where"><span class="label">Sort by distance</span>
-      <button class="primary" type="button" data-locate ${locating ? "disabled" : ""}>${locating ? "Locating…" : "Use my location"}</button>
-      <input name="where" maxlength="120" placeholder="or type a street, area or city" aria-label="Your street, area or city" value="${esc(where)}">
-      <button class="secondary" type="submit" ${locating ? "disabled" : ""}>Search</button>
+    return `<form class="sortbar" id="where"><span class="label">${tr("Sort by distance")}</span>
+      <button class="primary" type="button" data-locate ${locating ? "disabled" : ""}>${locating ? tr("Locating…") : tr("Use my location")}</button>
+      <input name="where" maxlength="120" placeholder="${tr("or type a street, area or city")}" aria-label="${tr("Your street, area or city")}" value="${esc(where)}">
+      <button class="secondary" type="submit" ${locating ? "disabled" : ""}>${tr("Search")}</button>
       ${locError ? `<div class="error">${esc(locError)}</div>` : ""}</form>`;
   }
 
@@ -410,26 +675,26 @@
     if (p.need_location && !Array.isArray(p.businesses)) { app.innerHTML = locatePanel() + `<div class="brand"><i></i>Oasis</div>`; return; }
     const what = p.query || p.type || "";
     let html = p.you
-      ? `<div class="head"><b>Nearest${what ? ` ${esc(what)}` : ""}</b> · near ${esc(p.you.label)}${p.you.approximate ? " (approximate)" : ""}</div>`
-      : `<div class="head"><b>${list.length} result${list.length === 1 ? "" : "s"}</b>${what ? ` for “${esc(what)}”` : ""}${p.need_location ? " · not sorted by distance" : ""}</div>`;
+      ? `<div class="head"><b>${what ? tr("Nearest {w}", { w: esc(what) }) : tr("Nearest")}</b> · ${tr("near {p}", { p: esc(p.you.label) })}${p.you.approximate ? tr(" (approximate)") : ""}</div>`
+      : `<div class="head"><b>${tr(list.length === 1 ? "{n} result" : "{n} results", { n: list.length })}</b>${what ? tr(" for “{w}”", { w: esc(what) }) : ""}${p.need_location ? tr(" · not sorted by distance") : ""}</div>`;
     if (p.need_location && list.length) html += sortBar();
     if (error) html += `<div class="error">${esc(error)}</div>`;
-    if (p.widened && list.length) html += `<p class="note" style="margin-top:0">Nothing within ${esc(p.radius_km)} km, so these are the closest.</p>`;
-    if (!list.length) html += `<p class="empty">${p.you ? "No place near you offers that yet." : online.length ? "No local place offers that yet." : "No business offers that yet."}</p>`;
+    if (p.widened && list.length) html += `<p class="note" style="margin-top:0">${tr("Nothing within {km} km, so these are the closest.", { km: esc(p.radius_km) })}</p>`;
+    if (!list.length) html += `<p class="empty">${tr(p.you ? "No place near you offers that yet." : online.length ? "No local place offers that yet." : "No business offers that yet.")}</p>`;
     if (list.length) html += `<div class="places">${list.map(placeCard).join("")}</div>`;
-    if ((p.online || []).length) html += `<div class="section">Also online</div><div class="places">${p.online.map(placeCard).join("")}</div>`;
-    if (p.you) html += `<p class="note">Your location is used for this search only and never stored.</p>`;
+    if ((p.online || []).length) html += `<div class="section">${tr("Also online")}</div><div class="places">${p.online.map(placeCard).join("")}</div>`;
+    if (p.you) html += `<p class="note">${tr("Your location is used for this search only and never stored.")}</p>`;
     html += `<div class="brand"><i></i>Oasis</div>`;
     app.innerHTML = html;
   }
 
   function geolocate() {
     return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) { reject(new Error("This app can't read your location here. Type a street, area or city instead.")); return; }
+      if (!navigator.geolocation) { reject(new Error(tr("This app can't read your location here. Type a street, area or city instead."))); return; }
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "Your location", approximate: false }),
-        (err) => reject(new Error(err && err.code === 1 ? "Location access is blocked here. Type a street, area or city instead."
-                                                         : "Couldn't get your location. Type a street, area or city instead.")),
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: tr("Your location"), approximate: false }),
+        (err) => reject(new Error(tr(err && err.code === 1 ? "Location access is blocked here. Type a street, area or city instead."
+                                                            : "Couldn't get your location. Type a street, area or city instead."))),
         { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 });
     });
   }
@@ -477,23 +742,23 @@
     if (places) { renderPlaces(); return; }
     if (!data) return;
     const all = items();
-    const title = (data.result && data.result.title) || data.tool || "Items";
-    const back = backTo ? `<button class="link back" data-back-places>← Back</button>` : "";
-    if (!all.length) { app.innerHTML = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)}</div><p class="empty">No items right now.</p>`; return; }
+    const title = (data.result && data.result.title) || data.tool || tr("Items");
+    const back = backTo ? `<button class="link back" data-back-places>${tr("← Back")}</button>` : "";
+    if (!all.length) { app.innerHTML = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)}</div><p class="empty">${tr("No items right now.")}</p>`; return; }
     const shown = showAll ? all : all.slice(0, SHOWN);
     const pictures = all.some((i) => i.image_url);
     const sections = [...new Set(shown.map((i) => i.section || ""))];
-    let html = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)} · ${all.length} item${all.length === 1 ? "" : "s"}</div>`;
-    if (data.search && data.message) html += `<p class="note" style="margin:-4px 0 10px">${esc(data.message)} <button class="link" data-everything>Show everything</button></p>`;
+    let html = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)} · ${tr(all.length === 1 ? "{n} item" : "{n} items", { n: all.length })}</div>`;
+    if (data.search && data.message) html += `<p class="note" style="margin:-4px 0 10px">${esc(data.message)} <button class="link" data-everything>${tr("Show everything")}</button></p>`;
     for (const s of sections) {
       if (sections.length > 1 && s) html += `<div class="section">${esc(s)}</div>`;
       html += `<div class="grid${pictures ? "" : " text"}">${shown.filter((i) => (i.section || "") === s).map((i) => card(i, pictures)).join("")}</div>`;
     }
-    if (all.length > SHOWN) html += `<div class="more"><button class="link" data-all>${showAll ? "Show fewer" : `Show all ${all.length}`}</button></div>`;
-    if (!data.can_order && all.some((i) => i.amount !== null && i.amount !== undefined)) html += `<p class="note">${esc(data.business)} doesn't take orders through Oasis. Contact them directly to order.</p>`;
+    if (all.length > SHOWN) html += `<div class="more"><button class="link" data-all>${showAll ? tr("Show fewer") : tr("Show all {n}", { n: all.length })}</button></div>`;
+    if (!data.can_order && all.some((i) => i.amount !== null && i.amount !== undefined)) html += `<p class="note">${tr("{b} doesn't take orders through Oasis. Contact them directly to order.", { b: esc(data.business) })}</p>`;
     const { count, total, currency } = cartTotal();
     if (canOrder() && count && step === "pick") {
-      html += `<div class="bar"><span>Your order · ${count} item${count === 1 ? "" : "s"}${total !== null ? ` · ${esc(money(total, currency))}` : ""}</span><button data-review>Review order</button></div>`;
+      html += `<div class="bar"><span>${tr("Your order")} · ${tr(count === 1 ? "{n} item" : "{n} items", { n: count })}${total !== null ? ` · ${esc(money(total, currency))}` : ""}</span><button data-review>${tr("Review order")}</button></div>`;
     }
     if (canOrder() && step === "review") html += reviewPanel();
     if (order) html += statusPanel();
@@ -506,7 +771,7 @@
 
   async function photoFallback(img) {
     const id = img.dataset.item, n = Number(img.dataset.index || 0);
-    const noPic = () => { const d = document.createElement("div"); d.className = "nopic"; d.textContent = "No picture"; img.replaceWith(d); };
+    const noPic = () => { const d = document.createElement("div"); d.className = "nopic"; d.textContent = tr("No picture"); img.replaceWith(d); };
     if (!id || img.src.startsWith("data:")) return noPic();
     try {
       const r = data.business_id ? await callTool("product_photo", { business_id: data.business_id, product_id: id, index: n })
@@ -541,7 +806,7 @@
       if (!cartTotal().count) step = "pick";
       render();
     } else if (t.dataset.open) openLink(t.dataset.open);
-    else if (t.dataset.ask) ask(`Tell me more about "${t.dataset.ask}" from ${data.business}.`);
+    else if (t.dataset.ask) ask(tr("Tell me more about “{item}” from {b}.", { item: t.dataset.ask, b: data.business }));
     else if ("all" in t.dataset) { showAll = !showAll; render(); }
     else if ("review" in t.dataset) { step = "review"; error = ""; render(); }
     else if ("back" in t.dataset) { step = "pick"; error = ""; render(); }
@@ -562,7 +827,7 @@
   app.addEventListener("submit", (e) => {
     e.preventDefault();
     if (e.target.id !== "where") { sendOrder(); return; }
-    if (!where.trim()) { locError = "Type a street, area or city."; render(); return; }
+    if (!where.trim()) { locError = tr("Type a street, area or city."); render(); return; }
     searchNear({ location: where.trim() });
   });
 
@@ -613,7 +878,7 @@
     .catch(() => undefined);
 
   // Older ChatGPT bridge: the result is on window.openai.toolOutput.
-  const fromOpenAI = () => { if (!connected && window.openai && window.openai.toolOutput && !data) { applyContext({ theme: window.openai.theme }); show(window.openai.toolOutput); } };
+  const fromOpenAI = () => { if (!connected && window.openai && window.openai.toolOutput && !data) { applyContext({ theme: window.openai.theme, locale: window.openai.locale }); show(window.openai.toolOutput); } };
   window.addEventListener("openai:set_globals", fromOpenAI);
   setTimeout(fromOpenAI, 300);
 })();

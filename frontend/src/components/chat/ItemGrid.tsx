@@ -3,6 +3,7 @@ import { Check, CircleX, ImageOff, Loader2, Minus, Plus, ShoppingBag } from "luc
 import { cartKey, money, orderStatus, sendOrder, splitCartKey, type OrderDetails } from "../../lib/chat";
 import type { CatalogItem, ChatCatalog, ChatOrder } from "../../types";
 import { Button, cx } from "../ui";
+import { useT } from "../../lib/i18n";
 
 const SHOWN = 9;
 
@@ -41,6 +42,7 @@ function Picture({ item }: { item: CatalogItem }) {
   const photos = item.images?.length ? item.images : item.image_url ? [item.image_url] : [];
   const [at, setAt] = useState(0);
   const [failed, setFailed] = useState<Record<number, boolean>>({});
+  const { t } = useT();
   if (!photos.length || failed[at]) {
     return (
       <div className="flex aspect-[4/3] items-center justify-center bg-stone-100 text-stone-300">
@@ -64,7 +66,7 @@ function Picture({ item }: { item: CatalogItem }) {
             <button
               key={n}
               onClick={() => setAt(n)}
-              aria-label={`Photo ${n + 1}`}
+              aria-label={t("items.photo", { n: n + 1 })}
               className={cx("size-1.5 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.2)]", n === at ? "bg-white" : "bg-white/50")}
             />
           ))}
@@ -75,20 +77,21 @@ function Picture({ item }: { item: CatalogItem }) {
 }
 
 function Stepper({ qty, max, onChange }: { qty: number; max: number; onChange: (q: number) => void }) {
+  const { t } = useT();
   if (!qty) {
     return (
       <button onClick={() => onChange(1)} className="inline-flex items-center gap-1 rounded-full border border-stone-200 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50">
-        <Plus className="size-3" /> Add
+        <Plus className="size-3" /> {t("items.add")}
       </button>
     );
   }
   return (
     <div className="inline-flex items-center rounded-full bg-stone-800 text-white">
-      <button onClick={() => onChange(qty - 1)} className="rounded-full p-1.5 hover:bg-stone-700" aria-label="One less">
+      <button onClick={() => onChange(qty - 1)} className="rounded-full p-1.5 hover:bg-stone-700" aria-label={t("items.less")}>
         <Minus className="size-3" />
       </button>
       <span className="min-w-5 text-center text-xs font-semibold tabular-nums">{qty}</span>
-      <button onClick={() => onChange(Math.min(max, qty + 1))} className="rounded-full p-1.5 hover:bg-stone-700" aria-label="One more">
+      <button onClick={() => onChange(Math.min(max, qty + 1))} className="rounded-full p-1.5 hover:bg-stone-700" aria-label={t("items.more")}>
         <Plus className="size-3" />
       </button>
     </div>
@@ -117,6 +120,7 @@ function ItemCard({
   onPick: (axis: string, value: string) => void;
   onQty: (key: string, q: number) => void;
 }) {
+  const { lang, t } = useT();
   const axes = axesOf(item);
   const variant = variantOf(item, picks);
   const key = cartKey(item.id, variant);
@@ -130,7 +134,7 @@ function ItemCard({
       <div className="space-y-1 p-3">
         <div className="flex items-start justify-between gap-2">
           <span className="font-medium leading-snug text-stone-800">{item.name}</span>
-          {item.price && <span className="shrink-0 text-sm font-medium text-stone-700 tabular-nums">{money(item.amount, item.currency) || item.price}</span>}
+          {item.price && <span className="shrink-0 text-sm font-medium text-stone-700 tabular-nums">{money(item.amount, item.currency, lang) || item.price}</span>}
         </div>
         <Details item={item} />
         {item.description && <p className={cx("text-xs text-stone-500", pictures ? "line-clamp-2" : "line-clamp-4")}>{item.description}</p>}
@@ -150,7 +154,7 @@ function ItemCard({
                   return (
                     <option key={v} value={v}>
                       {v}
-                      {out ? " (sold out)" : ""}
+                      {out ? t("items.soldOutOption") : ""}
                     </option>
                   );
                 })}
@@ -160,12 +164,12 @@ function ItemCard({
         )}
         {left !== null && (soldOut || left <= 3) && (
           <p className={cx("text-xs", soldOut ? "text-soft-red-ink" : "text-amber-700")}>
-            {soldOut ? `Sold out${variant ? ` in ${label(variant)}` : ""}` : `Only ${left} left`}
+            {soldOut ? (variant ? t("items.soldOutIn", { variant: label(variant) }) : t("items.soldOut")) : t("items.left", { n: left })}
           </p>
         )}
         {!pictures && item.url && (
           <a href={item.url} target="_blank" rel="noreferrer noopener" className="inline-block text-xs font-medium text-brand-800 hover:underline">
-            Open ↗
+            {t("items.open")}
           </a>
         )}
         {canPick && !soldOut && (
@@ -196,6 +200,7 @@ function Review({ c, onBack, onSent }: { c: ChatCatalog; onBack: () => void; onS
   const [d, setD] = useState<OrderDetails>({ customer_name: "", customer_contact: "", pickup_time: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { lang, t } = useT();
   const { total, currency } = cartTotal(c);
   const lines = Object.entries(c.cart)
     .filter(([, q]) => q > 0)
@@ -218,7 +223,7 @@ function Review({ c, onBack, onSent }: { c: ChatCatalog; onBack: () => void; onS
 
   return (
     <form onSubmit={submit} className="rounded-xl border border-stone-200 bg-white p-4">
-      <h4 className="font-medium text-stone-800">Your order from {c.business_name}</h4>
+      <h4 className="font-medium text-stone-800">{t("order.from", { business: c.business_name })}</h4>
       <ul className="mt-2 divide-y divide-line text-sm">
         {lines.map(({ key, q, variant, item }) => (
           <li key={key} className="flex justify-between py-1.5">
@@ -226,28 +231,28 @@ function Review({ c, onBack, onSent }: { c: ChatCatalog; onBack: () => void; onS
               {q}× {item!.name}
               {variant && <span className="text-stone-500"> ({label(variant)})</span>}
             </span>
-            <span className="tabular-nums text-stone-600">{money(item!.amount === null ? null : item!.amount * q, item!.currency) || "price on request"}</span>
+            <span className="tabular-nums text-stone-600">{money(item!.amount === null ? null : item!.amount * q, item!.currency, lang) || t("order.priceOnRequest")}</span>
           </li>
         ))}
       </ul>
       <div className="mt-1 flex justify-between border-t border-stone-200 pt-2 text-sm font-semibold">
-        <span>Total</span>
-        <span className="tabular-nums">{total === null ? "confirmed by the business" : money(total, currency)}</span>
+        <span>{t("order.total")}</span>
+        <span className="tabular-nums">{total === null ? t("order.totalLater") : money(total, currency, lang)}</span>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <input required maxLength={80} placeholder="Your name" value={d.customer_name} onChange={(e) => setD({ ...d, customer_name: e.target.value })} className={field} />
-        <input required maxLength={120} placeholder="Phone or email" value={d.customer_contact} onChange={(e) => setD({ ...d, customer_contact: e.target.value })} className={field} />
-        <input maxLength={40} placeholder="When? e.g. today 19:00" value={d.pickup_time} onChange={(e) => setD({ ...d, pickup_time: e.target.value })} className={field} />
-        <input maxLength={300} placeholder="Note (optional)" value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} className={field} />
+        <input required maxLength={80} placeholder={t("order.name")} value={d.customer_name} onChange={(e) => setD({ ...d, customer_name: e.target.value })} className={field} />
+        <input required maxLength={120} placeholder={t("order.contact")} value={d.customer_contact} onChange={(e) => setD({ ...d, customer_contact: e.target.value })} className={field} />
+        <input maxLength={40} placeholder={t("order.when")} value={d.pickup_time} onChange={(e) => setD({ ...d, pickup_time: e.target.value })} className={field} />
+        <input maxLength={300} placeholder={t("order.note")} value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })} className={field} />
       </div>
       {error && <p className="mt-2 text-sm text-soft-red-ink">{error}</p>}
-      <p className="mt-3 text-xs text-stone-500">{c.business_name} confirms or declines your order; you'll see the answer here. Nothing is paid now.</p>
+      <p className="mt-3 text-xs text-stone-500">{t("order.explain", { business: c.business_name })}</p>
       <div className="mt-3 flex gap-2">
         <Button type="submit" loading={busy}>
-          <ShoppingBag className="size-4" /> Send order
+          <ShoppingBag className="size-4" /> {t("order.send")}
         </Button>
         <Button type="button" variant="secondary" onClick={onBack} disabled={busy}>
-          Back
+          {t("order.back")}
         </Button>
       </div>
     </form>
@@ -256,6 +261,7 @@ function Review({ c, onBack, onSent }: { c: ChatCatalog; onBack: () => void; onS
 
 function OrderStatus({ c, onStatus }: { c: ChatCatalog; onStatus: (status: ChatOrder["status"], note: string) => void }) {
   const o = c.order!;
+  const { lang, t } = useT();
   // Ask every 10 s while the business hasn't answered. Refs keep the timer steady while the rest
   // of the chat re-renders (a new answer streaming in).
   const latest = useRef({ c, onStatus });
@@ -276,11 +282,11 @@ function OrderStatus({ c, onStatus }: { c: ChatCatalog; onStatus: (status: ChatO
         {o.status === "pending" && <Loader2 className="size-4 animate-spin text-stone-500" />}
         {o.status === "accepted" && <Check className="size-4 text-emerald-700" />}
         {o.status === "declined" && <CircleX className="size-4 text-soft-red-ink" />}
-        {o.status === "pending" ? `Sent to ${c.business_name}, waiting for their answer…` : o.status === "accepted" ? `${c.business_name} accepted your order` : `${c.business_name} declined your order`}
+        {t(o.status === "pending" ? "order.pending" : o.status === "accepted" ? "order.accepted" : "order.declined", { business: c.business_name })}
       </div>
       <p className="mt-1 text-stone-600">
         {o.lines.map((l) => `${l.quantity}× ${l.name}`).join(", ")}
-        {o.total !== null && ` · ${money(o.total, o.currency)}`}
+        {o.total !== null && ` · ${money(o.total, o.currency, lang)}`}
       </p>
       {o.owner_note && <p className="mt-1 text-stone-700">“{o.owner_note}”</p>}
     </div>
@@ -294,6 +300,8 @@ export function ItemGrid({ c, onChange }: { c: ChatCatalog; onChange: (c: ChatCa
   const [all, setAll] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [picks, setPicks] = useState<Record<string, Record<string, string>>>({});
+  const { lang, t } = useT();
+  const itemCount = (n: number) => t(n === 1 ? "items.count.one" : "items.count.other", { n });
   // Ordering needs the business's yes and a list with prices (not projects or skills).
   const canPick = c.orderable && !c.order && c.items.some((i) => i.price);
   const { count, total, currency } = cartTotal(c);
@@ -311,7 +319,7 @@ export function ItemGrid({ c, onChange }: { c: ChatCatalog; onChange: (c: ChatCa
   return (
     <div className="space-y-3">
       <div className="text-sm text-stone-500">
-        <span className="font-medium text-stone-800">{c.title}</span> · {c.business_name} · {c.items.length} item{c.items.length === 1 ? "" : "s"}
+        <span className="font-medium text-stone-800">{c.title}</span> · {c.business_name} · {itemCount(c.items.length)}
       </div>
       {sections.map((section) => (
         <div key={section || "-"}>
@@ -336,19 +344,19 @@ export function ItemGrid({ c, onChange }: { c: ChatCatalog; onChange: (c: ChatCa
       ))}
       {c.items.length > SHOWN && (
         <button onClick={() => setAll((a) => !a)} className="text-sm font-medium text-brand-800 hover:underline">
-          {all ? "Show fewer" : `Show all ${c.items.length}`}
+          {all ? t("items.showFewer") : t("items.showAll", { n: c.items.length })}
         </button>
       )}
-      {!c.orderable && c.items.some((i) => i.amount !== null) && <p className="text-xs text-stone-500">{c.business_name} doesn't take orders through Oasis. Contact them directly to order.</p>}
+      {!c.orderable && c.items.some((i) => i.amount !== null) && <p className="text-xs text-stone-500">{t("items.noOrders", { business: c.business_name })}</p>}
 
       {canPick && count > 0 && !reviewing && (
         <div className="sticky bottom-2 flex items-center justify-between gap-3 rounded-xl bg-stone-800 px-4 py-2.5 text-white shadow-lg">
           <span className="text-sm">
-            Your order · {count} item{count === 1 ? "" : "s"}
-            {total !== null && ` · ${money(total, currency)}`}
+            {t("items.yourOrder")} · {itemCount(count)}
+            {total !== null && ` · ${money(total, currency, lang)}`}
           </span>
           <button onClick={() => setReviewing(true)} className="rounded-full bg-white px-3 py-1 text-sm font-medium text-stone-800 hover:bg-stone-100">
-            Review order
+            {t("items.review")}
           </button>
         </div>
       )}
