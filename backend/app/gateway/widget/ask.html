@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Oasis question</title>
+<!--
+  A question from the assistant that the user answers with a tap (MCP App for the ask_user tool):
+  yes/no, one choice, several choices, a range or a value between two, a star rating, a number, a
+  date, a time or a short text. The answer is sent as the user's next message (ui/message), and
+  the model is told what was answered (ui/update-model-context). Once answered, the card stays
+  answered (ChatGPT keeps it in widgetState).
+-->
+<style>
+/* @theme */
+  .q { padding: 16px 16px 14px; position: relative; overflow: hidden; animation: pop .18s ease-out; }
+  .q::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--accent), #6cc7ff); }
+  .kicker { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+  .kicker i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  h2 { margin: 6px 0 2px; font-size: 16.5px; line-height: 1.35; font-weight: 650; letter-spacing: -.005em; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; }
+  .yesno { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .big { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 10px; border-radius: 12px; font-weight: 650;
+         border: 1.5px solid var(--line); background: var(--card); transition: transform .12s, border-color .12s, background .12s, box-shadow .12s; }
+  .big:hover { transform: translateY(-1px); box-shadow: var(--shadow-up); }
+  .big.yes:hover, .big.yes.on { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+  .big.no:hover, .big.no.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .opts { display: grid; gap: 8px; margin-top: 12px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .opt { display: flex; align-items: center; gap: 10px; text-align: left; padding: 11px 12px; border-radius: 12px; border: 1.5px solid var(--line);
+         background: var(--card); transition: transform .12s, border-color .12s, background .12s, box-shadow .12s; min-height: 46px; }
+  .opt:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-up); }
+  .opt.on { border-color: var(--accent); background: var(--accent-soft); }
+  .mark { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; flex-shrink: 0; transition: all .12s; }
+  .multi .mark { border-radius: 6px; }
+  .opt.on .mark { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .mark .ico { width: 13px; height: 13px; stroke-width: 3; opacity: 0; transform: scale(.6); transition: all .12s; }
+  .opt.on .mark .ico { opacity: 1; transform: scale(1); }
+  .opt span { font-weight: 550; line-height: 1.3; }
+  .other { display: flex; gap: 8px; margin-top: 8px; }
+  input[type=text], input[type=number], input[type=date], input[type=time], textarea {
+    font: inherit; color: var(--ink); background: var(--card); border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 11px; width: 100%; }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 70px; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+  .count { color: var(--muted); font-size: 12px; }
+  /* range */
+  .value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 10px; }
+  .value small { font-size: 13px; color: var(--muted); font-weight: 600; margin-left: 4px; }
+  .slider { position: relative; height: 34px; margin-top: 6px; }
+  .track { position: absolute; left: 0; right: 0; top: 15px; height: 4px; border-radius: 4px; background: var(--line); }
+  .fill { position: absolute; top: 15px; height: 4px; border-radius: 4px; background: var(--accent); }
+  .slider input[type=range] { position: absolute; inset: 0; width: 100%; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; height: 34px; }
+  .slider input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--card); border: 2px solid var(--accent); box-shadow: var(--shadow); cursor: grab; }
+  .slider input[type=range]::-moz-range-thumb { pointer-events: auto; width: 18px; height: 18px; border-radius: 50%; background: var(--card);
+    border: 2px solid var(--accent); box-shadow: var(--shadow); cursor: grab; }
+  .slider input[type=range]::-moz-range-track { background: none; }
+  .ends { display: flex; justify-content: space-between; color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  /* rating */
+  .stars { display: flex; gap: 6px; margin-top: 12px; }
+  .star { background: none; border: 0; padding: 2px; color: var(--line); transition: transform .1s, color .1s; }
+  .star .ico { width: 32px; height: 32px; fill: currentColor; stroke: none; }
+  .star.on { color: #f5b301; }
+  .star:hover { transform: scale(1.12); }
+  .rlabel { color: var(--muted); font-size: 12.5px; margin-top: 4px; min-height: 18px; }
+  /* number */
+  .num { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; border: 1.5px solid var(--line); border-radius: 999px; padding: 4px; }
+  .num button { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--soft); font-size: 18px; font-weight: 600; }
+  .num button:hover { background: var(--accent-soft); color: var(--accent); }
+  .num output { min-width: 56px; text-align: center; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  /* answered */
+  .answered { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); animation: pop .18s ease-out; }
+  .answered .tick { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex-shrink: 0; }
+  .answered .tick .ico { width: 14px; height: 14px; stroke-width: 3; }
+  .answered b { font-weight: 650; }
+  .answered .muted { font-size: 12px; }
+  .skeleton.l1 { height: 18px; width: 70%; margin: 8px 0; }
+  .skeleton.l2 { height: 44px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div id="app"><div class="card q"><div class="skeleton l1"></div><div class="skeleton l2"></div><div class="skeleton l2"></div></div></div>
+<!-- @bridge -->
+<script>
+(() => {
+  "use strict";
+  const { t, esc, icon, ICONS } = Oasis;
+  const S = {
+    en: { kicker: "Question", yes: "Yes", no: "No", send: "Send", other: "Something else…", otherPh: "Type your answer", pickUp: "Pick up to {n}",
+          pickAny: "Pick as many as you like", picked: "{n} selected", answered: "Answered", sent: "Sent to the assistant", between: "{a} to {b}",
+          type: "Type your answer", r1: "Poor", r2: "Fair", r3: "Good", r4: "Very good", r5: "Excellent", none: "Nothing selected",
+          failed: "Couldn't send the answer here. Type it in the chat instead." },
+    fr: { kicker: "Question", yes: "Oui", no: "Non", send: "Envoyer", other: "Autre chose…", otherPh: "Votre réponse", pickUp: "Jusqu'à {n} choix",
+          pickAny: "Autant que vous voulez", picked: "{n} sélectionné(s)", answered: "Répondu", sent: "Envoyé à l'assistant", between: "{a} à {b}",
+          type: "Votre réponse", r1: "Mauvais", r2: "Moyen", r3: "Bien", r4: "Très bien", r5: "Excellent", none: "Rien de sélectionné",
+          failed: "Impossible d'envoyer la réponse ici. Écrivez-la dans le chat." },
+    it: { kicker: "Domanda", yes: "Sì", no: "No", send: "Invia", other: "Altro…", otherPh: "Scrivi la tua risposta", pickUp: "Fino a {n} scelte",
+          pickAny: "Quanti vuoi", picked: "{n} selezionati", answered: "Risposto", sent: "Inviato all'assistente", between: "da {a} a {b}",
+          type: "Scrivi la tua risposta", r1: "Scarso", r2: "Discreto", r3: "Buono", r4: "Molto buono", r5: "Eccellente", none: "Niente selezionato",
+          failed: "Impossibile inviare la risposta qui. Scrivila nella chat." },
+    de: { kicker: "Frage", yes: "Ja", no: "Nein", send: "Senden", other: "Etwas anderes…", otherPh: "Ihre Antwort", pickUp: "Bis zu {n} wählen",
+          pickAny: "Beliebig viele wählen", picked: "{n} ausgewählt", answered: "Beantwortet", sent: "An den Assistenten gesendet", between: "{a} bis {b}",
+          type: "Ihre Antwort", r1: "Schlecht", r2: "Mässig", r3: "Gut", r4: "Sehr gut", r5: "Ausgezeichnet", none: "Nichts ausgewählt",
+          failed: "Die Antwort konnte hier nicht gesendet werden. Bitte im Chat eintippen." },
+  };
+  const L = (k, v) => t(S, k, v);
+  const app = document.getElementById("app");
+
+  let q = null;              // the question: {question, kind, options, ...}
+  let picked = new Set();    // choices
+  let other = "", otherOn = false;
+  let lo = 0, hi = 0, value = 0, rating = 0, hover = 0, text = "";
+  let answer = null;         // {text, value} once answered
+  let busy = false, error = "";
+
+  const num = (v, d) => (typeof v === "number" && isFinite(v) ? v : (v !== undefined && v !== null && v !== "" && isFinite(Number(v)) ? Number(v) : d));
+  const unit = () => (q.unit || "").trim();
+  const fmt = (v) => {
+    const n = Number(v), digits = String(q.step || 1).includes(".") ? String(q.step).split(".")[1].length : 0;
+    const s = n.toLocaleString(Oasis.lang, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    const u = unit();
+    if (!u) return s;
+    return /^[A-Z]{3}$/.test(u) || ["$", "€", "£", "CHF", "Fr."].includes(u) ? `${u} ${s}` : `${s} ${u}`;
+  };
+
+  function setQuestion(args) {
+    if (!args || !args.question || answer) return;
+    const same = q && q.question === args.question && q.kind === args.kind;
+    q = { ...args, kind: args.kind || "single_choice", options: (args.options || []).map(String).filter(Boolean) };
+    if (!same) {
+      const min = num(q.min, 0), max = num(q.max, 100);
+      lo = num(q.default_min, num(q.default, min)); hi = num(q.default_max, max);
+      value = num(q.default, q.kind === "number" ? Math.max(min, num(q.min, 1)) : Math.round((min + max) / 2 / num(q.step, 1)) * num(q.step, 1));
+      rating = 0; picked = new Set(); text = q.kind === "text" ? String(q.default || "") : "";
+      const prior = Oasis.saved();
+      if (prior && prior.question === q.question && prior.answer) answer = prior.answer;
+    }
+    render();
+  }
+  Oasis.on("input", setQuestion);
+  Oasis.on("result", (r) => setQuestion(r && (r.ask || r)));
+  Oasis.on("context", () => render());
+
+  async function submit(textAnswer, valueAnswer) {
+    if (busy || answer) return;
+    busy = true; error = ""; render();
+    try {
+      Oasis.tellModel(`The user answered the question “${q.question}” in the Oasis card: ${textAnswer}`);
+      await Oasis.say(textAnswer);
+      answer = { text: textAnswer, value: valueAnswer };
+      Oasis.save({ question: q.question, answer });
+    } catch { error = L("failed"); }
+    busy = false; render();
+  }
+
+  // ---- views per kind ----
+  function yesNo() {
+    const [yes, no] = [q.options[0] || L("yes"), q.options[1] || L("no")];
+    return `<div class="yesno"><button class="big yes" data-answer="${esc(yes)}" data-value="true">${icon(ICONS.check)}${esc(yes)}</button>
+      <button class="big no" data-answer="${esc(no)}" data-value="false">${icon(ICONS.x)}${esc(no)}</button></div>`;
+  }
+  function choices(multi) {
+    const max = num(q.max_choices, 0);
+    const opts = q.options.map((o, n) => `<button class="opt${picked.has(o) ? " on" : ""}" data-opt="${n}" role="${multi ? "checkbox" : "radio"}"
+      aria-checked="${picked.has(o)}"><i class="mark">${icon(ICONS.check)}</i><span>${esc(o)}</span></button>`).join("");
+    const otherBtn = q.allow_other ? `<button class="opt${otherOn ? " on" : ""}" data-other><i class="mark">${icon(ICONS.check)}</i><span>${esc(L("other"))}</span></button>` : "";
+    const otherBox = otherOn ? `<div class="other"><input type="text" id="other" maxlength="200" placeholder="${esc(L("otherPh"))}" value="${esc(other)}"></div>` : "";
+    const n = picked.size + (otherOn && other.trim() ? 1 : 0);
+    const foot = multi || q.allow_other
+      ? `<div class="foot"><span class="count">${esc(n ? L("picked", { n }) : multi ? (max ? L("pickUp", { n: max }) : L("pickAny")) : L("none"))}</span>
+         <button class="primary" data-send ${n ? "" : "disabled"}>${esc(L("send"))}</button></div>` : "";
+    return `<div class="opts${multi ? " multi" : ""}" role="${multi ? "group" : "radiogroup"}">${opts}${otherBtn}</div>${otherBox}${foot}`;
+  }
+  function range() {
+    const min = num(q.min, 0), max = num(q.max, 100), step = num(q.step, 1);
+    const pct = (v) => ((v - min) / (max - min || 1)) * 100;
+    if (q.between) {
+      return `<div class="value">${esc(L("between", { a: fmt(lo), b: fmt(hi) }))}</div>
+        <div class="slider"><div class="track"></div><div class="fill" style="left:${pct(lo)}%;right:${100 - pct(hi)}%"></div>
+          <input type="range" id="lo" min="${min}" max="${max}" step="${step}" value="${lo}" aria-label="min">
+          <input type="range" id="hi" min="${min}" max="${max}" step="${step}" value="${hi}" aria-label="max"></div>
+        <div class="ends"><span>${esc(fmt(min))}</span><span>${esc(fmt(max))}</span></div>
+        <div class="foot"><span></span><button class="primary" data-send>${esc(L("send"))}</button></div>`;
+    }
+    return `<div class="value">${esc(fmt(value))}</div>
+      <div class="slider"><div class="track"></div><div class="fill" style="left:0;right:${100 - pct(value)}%"></div>
+        <input type="range" id="one" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${esc(q.question)}"></div>
+      <div class="ends"><span>${esc(fmt(min))}</span><span>${esc(fmt(max))}</span></div>
+      <div class="foot"><span></span><button class="primary" data-send>${esc(L("send"))}</button></div>`;
+  }
+  function stars() {
+    const n = Math.max(3, Math.min(10, num(q.max, 5))), shown = hover || rating;
+    const label = n === 5 && shown ? L("r" + shown) : shown ? `${shown} / ${n}` : "";
+    return `<div class="stars" role="radiogroup">${Array.from({ length: n }, (_, i) =>
+      `<button class="star${i < shown ? " on" : ""}" data-star="${i + 1}" aria-label="${i + 1} / ${n}">${icon(ICONS.star)}</button>`).join("")}</div>
+      <div class="rlabel">${esc(label)}</div>`;
+  }
+  function number() {
+    return `<div class="num"><button data-step="-1" aria-label="−">−</button><output>${esc(fmt(value))}</output><button data-step="1" aria-label="+">+</button></div>
+      <div class="foot"><span></span><button class="primary" data-send>${esc(L("send"))}</button></div>`;
+  }
+  function field(type) {
+    const attrs = type === "text" ? `maxlength="${num(q.max_length, 300)}"` : `${q.min ? `min="${esc(q.min)}"` : ""} ${q.max ? `max="${esc(q.max)}"` : ""}`;
+    const input = type === "text" && num(q.max_length, 300) > 120
+      ? `<textarea id="field" ${attrs} placeholder="${esc(q.placeholder || L("type"))}">${esc(text)}</textarea>`
+      : `<input type="${type}" id="field" ${attrs} placeholder="${esc(q.placeholder || L("type"))}" value="${esc(text)}">`;
+    return `<div style="margin-top:12px">${input}</div>
+      <div class="foot"><span></span><button class="primary" data-send ${text.trim() ? "" : "disabled"}>${icon(ICONS.send)} ${esc(L("send"))}</button></div>`;
+  }
+
+  function render() {
+    if (!q) return;
+    const body = answer
+      ? `<div class="answered"><span class="tick">${icon(ICONS.check)}</span><div><b>${esc(answer.text)}</b><div class="muted">${esc(L("sent"))}</div></div></div>`
+      : ({ yes_no: yesNo, single_choice: () => choices(false), multi_choice: () => choices(true), range, rating: stars, number,
+           date: () => field("date"), time: () => field("time"), text: () => field("text") }[q.kind] || (() => choices(false)))();
+    const focus = document.activeElement && document.activeElement.id;
+    const caret = focus && document.activeElement.selectionStart;
+    app.innerHTML = `<div class="card q"><div class="kicker"><i></i>${esc(answer ? L("answered") : L("kicker"))}</div>
+      <h2>${esc(q.question)}</h2>${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}${body}
+      ${error ? `<div class="error">${esc(error)}</div>` : ""}</div><div class="brand"><i></i>Oasis</div>`;
+    if (focus) {
+      const el = document.getElementById(focus);
+      if (el) { el.focus(); if (caret !== null && caret !== undefined && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch { /* date inputs */ } }
+    }
+    if (busy) app.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  }
+
+  // ---- events ----
+  app.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b || b.disabled || answer) return;
+    if (b.dataset.answer !== undefined) return submit(b.dataset.answer, b.dataset.value === "true");
+    if (b.dataset.opt !== undefined) {
+      const o = q.options[Number(b.dataset.opt)];
+      if (q.kind === "multi_choice") {
+        const max = num(q.max_choices, 0);
+        if (picked.has(o)) picked.delete(o); else if (!max || picked.size < max) picked.add(o);
+        return render();
+      }
+      if (!q.allow_other) return submit(o, o);
+      picked = new Set([o]); otherOn = false; return render();
+    }
+    if ("other" in b.dataset) {
+      otherOn = !otherOn;
+      if (q.kind !== "multi_choice" && otherOn) picked = new Set();
+      render();
+      const input = document.getElementById("other");
+      if (input) input.focus();
+      return;
+    }
+    if (b.dataset.star) return submit(`${b.dataset.star} / ${Math.max(3, Math.min(10, num(q.max, 5)))}`, Number(b.dataset.star));
+    if (b.dataset.step) {
+      const step = num(q.step, 1);
+      value = Math.max(num(q.min, -Infinity), Math.min(num(q.max, Infinity), value + step * Number(b.dataset.step)));
+      return render();
+    }
+    if ("send" in b.dataset) {
+      if (q.kind === "range") return q.between ? submit(L("between", { a: fmt(lo), b: fmt(hi) }), [lo, hi]) : submit(fmt(value), value);
+      if (q.kind === "number") return submit(fmt(value), value);
+      if (["date", "time", "text"].includes(q.kind)) return text.trim() && submit(text.trim(), text.trim());
+      const all = [...picked, ...(otherOn && other.trim() ? [other.trim()] : [])];
+      if (all.length) submit(all.join(", "), all);
+    }
+  });
+  app.addEventListener("mouseover", (e) => {
+    const s = e.target.closest && e.target.closest("[data-star]");
+    const n = s ? Number(s.dataset.star) : 0;
+    if (q && q.kind === "rating" && n !== hover && !answer) { hover = n; render(); }
+  });
+  app.addEventListener("mouseleave", () => { if (hover) { hover = 0; render(); } });
+  app.addEventListener("input", (e) => {
+    const el = e.target;
+    if (el.id === "other") { other = el.value; render(); return; }
+    if (el.id === "field") { text = el.value; render(); return; }
+    const v = Number(el.value);
+    if (el.id === "one") value = v;
+    if (el.id === "lo") lo = Math.min(v, hi);
+    if (el.id === "hi") hi = Math.max(v, lo);
+    // update numbers and the fill without re-rendering (keeps the drag going)
+    const min = num(q.min, 0), max = num(q.max, 100), pct = (x) => ((x - min) / (max - min || 1)) * 100;
+    const fill = app.querySelector(".fill"), out = app.querySelector(".value");
+    if (q.between) { if (el.id === "lo") el.value = lo; if (el.id === "hi") el.value = hi; fill.style.left = pct(lo) + "%"; fill.style.right = 100 - pct(hi) + "%"; out.textContent = L("between", { a: fmt(lo), b: fmt(hi) }); }
+    else { fill.style.right = 100 - pct(value) + "%"; out.textContent = fmt(value); }
+  });
+  app.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.target.id === "other" || (e.target.id === "field" && e.target.tagName !== "TEXTAREA"))) {
+      e.preventDefault();
+      const send = app.querySelector("[data-send]");
+      if (send && !send.disabled) send.click();
+    }
+  });
+
+  Oasis.start("oasis-ask", "1.0.0");
+})();
+</script>
+</body>
+</html>

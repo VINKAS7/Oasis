@@ -60,10 +60,34 @@ def business_info(business_id: str) -> dict[str, Any]:
         "lng": None if b["online_only"] else b["lng"],
         "phone": b["phone"],
         "opening_hours": json.loads(b["hours"] or "{}"),
+        **_open_now(json.loads(b["hours"] or "{}"), bool(b["online_only"])),
         "website": b["website_url"],
         "public_key": signing.ensure_key(b["id"]),
         "public_key_note": "Ed25519. Answers from call_business_tool are signed with this key.",
     }
+
+
+def _open_now(hours: dict[str, Any], online_only: bool, now: Any = None) -> dict[str, Any]:
+    """Whether the business is open right now (in TIMEZONE), today's key, and when it closes or
+    opens next today. A bar open 18:00-02:00 is "open, closes 02:00" at 01:00 the next day."""
+    from . import directory
+
+    if online_only:
+        return {}
+    now = now or directory._local_now()
+    today, at = directory.DAYS[now.weekday()], now.strftime("%H:%M")
+    t = directory.minutes(at) or 0
+    out: dict[str, Any] = {"today": today, "open_now": directory.is_open(hours, today, at)}
+    h = hours.get(today) or {}
+    prev = hours.get(directory.DAYS[(now.weekday() - 1) % 7]) or {}
+    p_open, p_close = directory.minutes(prev.get("open")), directory.minutes(prev.get("close"))
+    if out["open_now"]:
+        late = not prev.get("closed") and p_open is not None and p_close is not None and p_close <= p_open and t < p_close
+        if late or h.get("close"):
+            out["closes_at"] = prev["close"] if late else h["close"]
+    elif out["open_now"] is False and not h.get("closed") and (directory.minutes(h.get("open")) or -1) > t:
+        out["opens_at"] = h["open"]
+    return out
 
 
 def published_tools(conn, business_id: str) -> list[dict[str, Any]]:

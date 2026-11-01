@@ -113,10 +113,53 @@
   .inline { display: flex; gap: 8px; margin-top: 10px; }
   .inline input { flex: 1; }
   .link[disabled] { opacity: .6; cursor: default; text-decoration: none; }
+  /* v8: a livelier catalog: hover lift, filters, photo viewer, full screen, loading shimmer */
+  .card { box-shadow: 0 1px 2px rgba(15,15,15,.04); transition: border-color .15s, transform .15s, box-shadow .15s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(15,15,15,.05), 0 10px 26px rgba(15,15,15,.10); }
+  .place { transition: border-color .15s, transform .15s, box-shadow .15s; }
+  .place:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(15,15,15,.05), 0 8px 20px rgba(15,15,15,.08); }
+  .pic { cursor: zoom-in; transition: transform .25s; }
+  .card:hover .pic { transform: scale(1.03); }
+  .picwrap { overflow: hidden; position: relative; }
+  .headrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .headrow .head { margin: 0; }
+  .iconbtn { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+             border-radius: 8px; padding: 4px 8px; font-size: 12px; font-weight: 600; }
+  .iconbtn:hover { background: var(--soft); }
+  .iconbtn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
+  .search { position: relative; flex: 1; min-width: 170px; }
+  .search input { padding-left: 30px; border-radius: 999px; }
+  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: var(--muted); fill: none; stroke-width: 2; }
+  .tools select { font: inherit; font-size: 12.5px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; background: var(--card); }
+  .toggle.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+  .sects { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin: 0 0 10px; scrollbar-width: none; }
+  .sects::-webkit-scrollbar { display: none; }
+  .sect { white-space: nowrap; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 600; }
+  .sect.on { background: var(--strong); color: var(--strong-ink); border-color: var(--strong); }
+  .sect .n { opacity: .6; margin-left: 4px; font-weight: 500; }
+  .viewer { position: relative; margin-bottom: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(15,15,15,.15); animation: vpop .18s ease-out; }
+  @keyframes vpop { from { transform: scale(.985); } to { transform: none; } }
+  .viewer img { display: block; width: 100%; max-height: 420px; object-fit: contain; background: var(--soft); }
+  .viewer .vbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; }
+  .viewer .nav { position: absolute; top: 40%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; border: 0;
+                 background: rgba(0,0,0,.45); color: #fff; font-size: 18px; line-height: 1; }
+  .viewer .nav.prev { left: 10px; } .viewer .nav.next { right: 10px; }
+  .viewer .close { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 16px; }
+  .bar { animation: vpop .18s ease-out; }
+  .bar.bump { animation: bump .35s ease-out; }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+  .skel { border-radius: 12px; background: linear-gradient(90deg, var(--soft) 0, var(--line) 50%, var(--soft) 100%); background-size: 600px 100%;
+          animation: shimmer 1.3s infinite linear; }
+  @keyframes shimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<div id="app"><p class="empty">Loading…</p></div>
+<div id="app"><div class="skel" style="height:14px;width:45%;margin-bottom:12px"></div>
+  <div class="grid"><div class="skel" style="height:190px"></div><div class="skel" style="height:190px"></div><div class="skel" style="height:190px"></div></div></div>
 <script>
 (() => {
   "use strict";
@@ -208,7 +251,22 @@
       "Your order": "Votre commande",
       "Review order": "Vérifier la commande",
       "Tell me more about “{item}” from {b}.": "Dis-m'en plus sur « {item} » de {b}.",
-      "Type a street, area or city.": "Saisissez une rue, un quartier ou une ville."
+      "Type a street, area or city.": "Saisissez une rue, un quartier ou une ville.",
+      "Search these items": "Rechercher dans ces articles",
+      "Sort": "Trier",
+      "Recommended": "Recommandés",
+      "Price: low to high": "Prix croissant",
+      "Price: high to low": "Prix décroissant",
+      "In stock": "En stock",
+      "All": "Tout",
+      "{n} of {m} items": "{n} sur {m} articles",
+      "Nothing matches these filters.": "Rien ne correspond à ces filtres.",
+      "Clear filters": "Effacer les filtres",
+      "Full screen": "Plein écran",
+      "Exit full screen": "Quitter le plein écran",
+      "Close": "Fermer",
+      "Previous photo": "Photo précédente",
+      "Next photo": "Photo suivante"
     },
     "it": {
       "The assistant refused the request.": "L'assistente ha rifiutato la richiesta.",
@@ -292,7 +350,22 @@
       "Your order": "Il tuo ordine",
       "Review order": "Controlla l'ordine",
       "Tell me more about “{item}” from {b}.": "Dimmi di più su «{item}» di {b}.",
-      "Type a street, area or city.": "Scrivi una via, una zona o una città."
+      "Type a street, area or city.": "Scrivi una via, una zona o una città.",
+      "Search these items": "Cerca tra questi articoli",
+      "Sort": "Ordina",
+      "Recommended": "Consigliati",
+      "Price: low to high": "Prezzo crescente",
+      "Price: high to low": "Prezzo decrescente",
+      "In stock": "Disponibili",
+      "All": "Tutti",
+      "{n} of {m} items": "{n} di {m} articoli",
+      "Nothing matches these filters.": "Nessun risultato con questi filtri.",
+      "Clear filters": "Azzera filtri",
+      "Full screen": "Schermo intero",
+      "Exit full screen": "Esci da schermo intero",
+      "Close": "Chiudi",
+      "Previous photo": "Foto precedente",
+      "Next photo": "Foto successiva"
     },
     "de": {
       "The assistant refused the request.": "Der Assistent hat die Anfrage abgelehnt.",
@@ -376,7 +449,22 @@
       "Your order": "Ihre Bestellung",
       "Review order": "Bestellung prüfen",
       "Tell me more about “{item}” from {b}.": "Erzähl mir mehr über «{item}» von {b}.",
-      "Type a street, area or city.": "Geben Sie eine Strasse, ein Quartier oder eine Stadt ein."
+      "Type a street, area or city.": "Geben Sie eine Strasse, ein Quartier oder eine Stadt ein.",
+      "Search these items": "In diesen Artikeln suchen",
+      "Sort": "Sortieren",
+      "Recommended": "Empfohlen",
+      "Price: low to high": "Preis aufsteigend",
+      "Price: high to low": "Preis absteigend",
+      "In stock": "Verfügbar",
+      "All": "Alle",
+      "{n} of {m} items": "{n} von {m} Artikeln",
+      "Nothing matches these filters.": "Nichts passt zu diesen Filtern.",
+      "Clear filters": "Filter zurücksetzen",
+      "Full screen": "Vollbild",
+      "Exit full screen": "Vollbild beenden",
+      "Close": "Schliessen",
+      "Previous photo": "Vorheriges Foto",
+      "Next photo": "Nächstes Foto"
     }
   };
   const pickLang = (l) => { const c = String(l || "").slice(0, 2).toLowerCase(); return STRINGS[c] ? c : "en"; };
@@ -415,8 +503,10 @@
     if (m.id !== undefined) post({ id: m.id, result: {} });  // ui/resource-teardown, ping...
   });
 
+  let host = {};  // the host context: display mode, available modes...
   function applyContext(ctx) {
     if (!ctx) return;
+    host = { ...host, ...ctx };
     // The assistant's language (en-US, fr-CH...): the cards follow it. English for anything else.
     if (ctx.locale && pickLang(ctx.locale) !== lang) { lang = pickLang(ctx.locale); document.documentElement.lang = lang; render(); }
     if (ctx.theme) document.documentElement.classList.toggle("dark", ctx.theme === "dark");
@@ -463,6 +553,8 @@
   let connected = false;
   let chosen = {};     // item id -> {size: "M", colour: "Black"}: the variant picked on its card
   let photoAt = {};    // item id -> which of its photos is shown
+  let query = "", sect = "", sort = "", stockOnly = false;  // the visitor's filters on a catalog
+  let viewing = null;  // {id, n}: the photo opened large
   const photoData = {}; // "id:index" -> data: URL fetched through MCP when the address won't load
   // places mode
   let places = null;    // { query, type, you?, businesses, online, widened, radius_km } or { need_location }
@@ -483,6 +575,7 @@
     if (sc.ok === false) { data = null; places = null; app.innerHTML = `<p class="empty">${esc(sc.message || tr("Nothing to show."))}</p>`; return; }
     data = sc; places = null;
     cart = {}; step = "pick"; order = null; error = ""; showAll = false; chosen = {}; photoAt = {};
+    query = ""; sect = ""; sort = ""; stockOnly = false; viewing = null;
     render();
   }
 
@@ -525,6 +618,37 @@
     }
     return { count, total, currency };
   }
+  const fold = (x) => String(x || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/ß/g, "ss");
+  const photosOf = (i) => (i.images && i.images.length ? i.images : i.image_url ? [i.image_url] : []);
+  const tracked = (i) => !!(i.available && Object.keys(i.available).length);
+  const hasStock = (i) => !tracked(i) || Object.values(i.available).some((n) => n > 0);
+  /** The catalog after the visitor's search, section, stock filter and sort. */
+  function filtered() {
+    const words = fold(query).split(/\s+/).filter(Boolean);
+    let list = items().filter((i) => (!sect || (i.section || "") === sect) && (!stockOnly || hasStock(i)) &&
+      words.every((w) => fold([i.name, i.description, i.section, ...Object.values(i.attributes || {}).flat()].join(" ")).includes(w)));
+    if (sort) {
+      const price = (i) => (i.amount === null || i.amount === undefined ? (sort === "asc" ? Infinity : -Infinity) : i.amount);
+      list = [...list].sort((a, b) => (sort === "asc" ? price(a) - price(b) : price(b) - price(a)));
+    }
+    return list;
+  }
+  const SVG = {
+    search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+    expand: '<svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>',
+    shrink: '<svg viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>',
+  };
+  const canFullscreen = () => (host.availableDisplayModes || []).includes("fullscreen") || !!(window.openai && window.openai.requestDisplayMode && !connected);
+  const isFullscreen = () => (host.displayMode || (window.openai && window.openai.displayMode)) === "fullscreen";
+  async function toggleFullscreen() {
+    const mode = isFullscreen() ? "inline" : "fullscreen";
+    try {
+      if (window.openai && window.openai.requestDisplayMode && !connected) await window.openai.requestDisplayMode({ mode });
+      else { const r = await request("ui/request-display-mode", { mode }); host.displayMode = (r && r.mode) || mode; }
+      host.displayMode = host.displayMode || mode;
+    } catch { /* the host said no */ }
+    render();
+  }
   const inCart = (id) => Object.entries(cart).filter(([k, q]) => q && splitKey(k)[0] === id).reduce((n, [, q]) => n + q, 0);
 
   // ---- views ----
@@ -544,7 +668,7 @@
     const src = photoData[`${i.id}:${at}`] || photos[at];
     let pic = "";
     if (pictures) {
-      pic = src ? `<img class="pic" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback data-item="${esc(i.id)}" data-index="${at}">` : `<div class="nopic">${tr("No picture")}</div>`;
+      pic = src ? `<div class="picwrap"><img class="pic" src="${esc(src)}" alt="${esc(i.name)}" loading="lazy" referrerpolicy="no-referrer" data-fallback data-item="${esc(i.id)}" data-index="${at}" data-zoom="${esc(i.id)}"></div>` : `<div class="nopic">${tr("No picture")}</div>`;
       if (photos.length > 1) pic += `<div class="dots">${photos.map((_, n) => `<button data-photo="${esc(i.id)}" data-n="${n}" class="${n === at ? "on" : ""}" aria-label="${tr("Photo {n}", { n: n + 1 })}"></button>`).join("")}</div>`;
     }
     // Sizes, colours...: one picker per option; a value with nothing left in any combination is marked.
@@ -745,16 +869,44 @@
     const title = (data.result && data.result.title) || data.tool || tr("Items");
     const back = backTo ? `<button class="link back" data-back-places>${tr("← Back")}</button>` : "";
     if (!all.length) { app.innerHTML = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)}</div><p class="empty">${tr("No items right now.")}</p>`; return; }
-    const shown = showAll ? all : all.slice(0, SHOWN);
+    const list = filtered();
+    const filtering = !!(query.trim() || sect || stockOnly);
+    const shown = showAll || isFullscreen() ? list : list.slice(0, SHOWN);
     const pictures = all.some((i) => i.image_url);
-    const sections = [...new Set(shown.map((i) => i.section || ""))];
-    let html = `<div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)} · ${tr(all.length === 1 ? "{n} item" : "{n} items", { n: all.length })}</div>`;
+    const allSections = [...new Set(all.map((i) => i.section || ""))].filter(Boolean);
+    const sections = sect || sort ? [""] : [...new Set(shown.map((i) => i.section || ""))];
+    const countText = filtering ? tr("{n} of {m} items", { n: list.length, m: all.length }) : tr(all.length === 1 ? "{n} item" : "{n} items", { n: all.length });
+    const full = canFullscreen() && all.length > 4
+      ? `<button class="iconbtn" data-full>${isFullscreen() ? SVG.shrink + tr("Exit full screen") : SVG.expand + tr("Full screen")}</button>` : "";
+    let html = `<div class="headrow"><div class="head">${back}<b>${esc(title)}</b> · ${esc(data.business)} · ${esc(countText)}</div>${full}</div>`;
     if (data.search && data.message) html += `<p class="note" style="margin:-4px 0 10px">${esc(data.message)} <button class="link" data-everything>${tr("Show everything")}</button></p>`;
+    if (all.length >= 6) {
+      const priced = all.filter((i) => i.amount !== null && i.amount !== undefined).length > 1;
+      html += `<div class="tools"><label class="search">${SVG.search}<input id="q" type="search" placeholder="${tr("Search these items")}" value="${esc(query)}" aria-label="${tr("Search these items")}"></label>
+        ${priced ? `<select id="sort" aria-label="${tr("Sort")}"><option value="">${tr("Recommended")}</option><option value="asc"${sort === "asc" ? " selected" : ""}>${tr("Price: low to high")}</option><option value="desc"${sort === "desc" ? " selected" : ""}>${tr("Price: high to low")}</option></select>` : ""}
+        ${all.some(tracked) ? `<button class="toggle${stockOnly ? " on" : ""}" data-stock>${tr("In stock")}</button>` : ""}</div>`;
+    }
+    if (allSections.length > 1) {
+      html += `<div class="sects"><button class="sect${sect ? "" : " on"}" data-sect="">${tr("All")}</button>${allSections.map((x) =>
+        `<button class="sect${sect === x ? " on" : ""}" data-sect="${esc(x)}">${esc(x)}<span class="n">${all.filter((i) => i.section === x).length}</span></button>`).join("")}</div>`;
+    }
+    if (viewing) {
+      const vi = byId(viewing.id), ph = vi ? photosOf(vi) : [];
+      if (vi && ph.length) {
+        const n = Math.min(viewing.n, ph.length - 1), src = photoData[`${vi.id}:${n}`] || ph[n];
+        html += `<div class="viewer"><img src="${esc(src)}" alt="${esc(vi.name)}" referrerpolicy="no-referrer">
+          <button class="close" data-unview aria-label="${tr("Close")}">×</button>
+          ${ph.length > 1 ? `<button class="nav prev" data-view-step="-1" aria-label="${tr("Previous photo")}">‹</button><button class="nav next" data-view-step="1" aria-label="${tr("Next photo")}">›</button>` : ""}
+          <div class="vbar"><span class="name">${esc(vi.name)}</span><span class="price">${esc(money(vi.amount, vi.currency) || vi.price || "")}</span></div></div>`;
+      }
+    }
+    if (!list.length) html += `<p class="empty">${tr("Nothing matches these filters.")} <button class="link" data-clear>${tr("Clear filters")}</button></p>`;
     for (const s of sections) {
       if (sections.length > 1 && s) html += `<div class="section">${esc(s)}</div>`;
-      html += `<div class="grid${pictures ? "" : " text"}">${shown.filter((i) => (i.section || "") === s).map((i) => card(i, pictures)).join("")}</div>`;
+      const inSection = sections.length > 1 ? shown.filter((i) => (i.section || "") === s) : shown;
+      if (inSection.length) html += `<div class="grid${pictures ? "" : " text"}">${inSection.map((i) => card(i, pictures)).join("")}</div>`;
     }
-    if (all.length > SHOWN) html += `<div class="more"><button class="link" data-all>${showAll ? tr("Show fewer") : tr("Show all {n}", { n: all.length })}</button></div>`;
+    if (list.length > SHOWN && !isFullscreen()) html += `<div class="more"><button class="link" data-all>${showAll ? tr("Show fewer") : tr("Show all {n}", { n: list.length })}</button></div>`;
     if (!data.can_order && all.some((i) => i.amount !== null && i.amount !== undefined)) html += `<p class="note">${tr("{b} doesn't take orders through Oasis. Contact them directly to order.", { b: esc(data.business) })}</p>`;
     const { count, total, currency } = cartTotal();
     if (canOrder() && count && step === "pick") {
@@ -763,7 +915,10 @@
     if (canOrder() && step === "review") html += reviewPanel();
     if (order) html += statusPanel();
     html += `<div class="brand"><i></i>Oasis</div>`;
+    const focus = document.activeElement && document.activeElement.id === "q";
+    const caret = focus ? document.activeElement.selectionStart : null;
     app.innerHTML = html;
+    if (focus) { const box = document.getElementById("q"); box.focus(); if (caret !== null) box.setSelectionRange(caret, caret); }
     for (const img of app.querySelectorAll("img[data-fallback]")) {
       img.addEventListener("error", () => photoFallback(img), { once: true });
     }
@@ -784,8 +939,20 @@
 
   // ---- events ----
   app.addEventListener("click", (e) => {
+    const zoom = e.target.closest && e.target.closest("img[data-zoom]");
+    if (zoom) { viewing = { id: zoom.dataset.zoom, n: Number(zoom.dataset.index || 0) }; render(); app.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
     const t = e.target.closest("button");
     if (!t || t.disabled) return;
+    // catalog filters, photo viewer, full screen
+    if (t.dataset.sect !== undefined) { sect = t.dataset.sect; showAll = false; render(); return; }
+    if ("stock" in t.dataset) { stockOnly = !stockOnly; render(); return; }
+    if ("clear" in t.dataset) { query = ""; sect = ""; stockOnly = false; render(); return; }
+    if ("full" in t.dataset) { toggleFullscreen(); return; }
+    if ("unview" in t.dataset) { viewing = null; render(); return; }
+    if (t.dataset.viewStep) {
+      const vi = byId(viewing.id), n = photosOf(vi).length;
+      viewing = { ...viewing, n: (viewing.n + Number(t.dataset.viewStep) + n) % n }; render(); return;
+    }
     // places
     if ("locate" in t.dataset) { useMyLocation(); return; }
     if (t.dataset.items) { openItems(t.dataset.items, places && places.query); return; }
@@ -805,6 +972,8 @@
       cart = { ...cart, [t.dataset.qty]: q };
       if (!cartTotal().count) step = "pick";
       render();
+      const bar = app.querySelector(".bar");
+      if (bar && Number(t.dataset.d) > 0) { bar.classList.remove("bump"); void bar.offsetWidth; bar.classList.add("bump"); }
     } else if (t.dataset.open) openLink(t.dataset.open);
     else if (t.dataset.ask) ask(tr("Tell me more about “{item}” from {b}.", { item: t.dataset.ask, b: data.business }));
     else if ("all" in t.dataset) { showAll = !showAll; render(); }
@@ -813,10 +982,12 @@
     else if ("check" in t.dataset) checkStatus(true);
   });
   app.addEventListener("input", (e) => {
+    if (e.target.id === "q") { query = e.target.value; showAll = false; render(); return; }
     if (e.target.name === "where") where = e.target.value;
     else if (e.target.name in form) form[e.target.name] = e.target.value;
   });
   app.addEventListener("change", (e) => {
+    if (e.target.id === "sort") { sort = e.target.value; render(); return; }
     const sel = e.target.closest && e.target.closest("select[data-opt]");
     if (!sel) return;
     const id = sel.dataset.opt, i = byId(id);
@@ -873,12 +1044,12 @@
   }
 
   // ---- start: the MCP Apps handshake ----
-  request("ui/initialize", { appInfo: { name: "oasis-items", version: "2.0.0" }, appCapabilities: {}, protocolVersion: PROTOCOL })
+  request("ui/initialize", { appInfo: { name: "oasis-items", version: "3.0.0" }, appCapabilities: {}, protocolVersion: PROTOCOL })
     .then((r) => { connected = true; applyContext(r && r.hostContext); notify("ui/notifications/initialized", {}); })
     .catch(() => undefined);
 
   // Older ChatGPT bridge: the result is on window.openai.toolOutput.
-  const fromOpenAI = () => { if (!connected && window.openai && window.openai.toolOutput && !data) { applyContext({ theme: window.openai.theme, locale: window.openai.locale }); show(window.openai.toolOutput); } };
+  const fromOpenAI = () => { if (!connected && window.openai && window.openai.toolOutput && !data) { applyContext({ theme: window.openai.theme, locale: window.openai.locale, displayMode: window.openai.displayMode }); show(window.openai.toolOutput); } };
   window.addEventListener("openai:set_globals", fromOpenAI);
   setTimeout(fromOpenAI, 300);
 })();

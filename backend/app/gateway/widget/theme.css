@@ -1,0 +1,45 @@
+  /* Shared by Oasis's MCP App views (ask, business). The frame stays transparent so the
+     conversation shows through; color-scheme must match the assistant's theme. */
+  :root { color-scheme: light; }
+  :root.dark { color-scheme: dark; }
+  :root {
+    --card: #ffffff; --ink: #0b0e13; --ink-2: #44474d; --muted: #75777c; --line: #e6e5e0; --soft: #f4f3ee;
+    --accent: #0d8a78; --accent-soft: #e8faf6; --accent-ink: #ffffff; --strong: #1c1f24; --strong-ink: #ffffff;
+    --ok: #1f8a4c; --ok-bg: #e8f5ec; --bad: #b4372a; --bad-bg: #fbecea; --warn: #9a5b00; --warn-bg: #fdf3e1;
+    --shadow: 0 1px 2px rgba(15, 15, 15, .04), 0 4px 14px rgba(15, 15, 15, .06);
+    --shadow-up: 0 2px 4px rgba(15, 15, 15, .05), 0 10px 26px rgba(15, 15, 15, .10);
+    --radius: 14px;
+  }
+  :root.dark {
+    --card: #15191f; --ink: #f4f3ee; --ink-2: #d4d3ce; --muted: #9a9b9f; --line: #2a2f36; --soft: #1c2128;
+    --accent: #2de2c8; --accent-soft: rgba(45, 226, 200, .12); --accent-ink: #0b0e13; --strong: #f4f3ee; --strong-ink: #0b0e13;
+    --ok: #5ccf8b; --ok-bg: rgba(52, 168, 83, .14); --bad: #f19a8c; --bad-bg: rgba(220, 80, 60, .14); --warn: #f2b85b; --warn-bg: rgba(242, 184, 91, .12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25);
+    --shadow-up: 0 2px 4px rgba(0, 0, 0, .3), 0 10px 26px rgba(0, 0, 0, .35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; color: var(--ink);
+    font: 14px/1.45 var(--font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif); }
+  #app { padding: 2px 2px 6px; }
+  button { font: inherit; cursor: pointer; color: inherit; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .muted { color: var(--muted); }
+  .primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 9px 16px; font-weight: 650;
+    transition: transform .12s ease, filter .12s ease, opacity .12s; }
+  .primary:hover { filter: brightness(1.06); }
+  .primary:active { transform: scale(.98); }
+  .primary[disabled] { opacity: .45; cursor: default; transform: none; filter: none; }
+  .secondary { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font-weight: 600; color: var(--ink); }
+  .secondary:hover { background: var(--soft); }
+  .link { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; font-size: 12.5px; }
+  .link:hover { text-decoration: underline; }
+  .brand { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; margin-top: 10px; }
+  .brand i { width: 8px; height: 8px; border-radius: 50%; background: #1fc9ae; display: inline-block; }
+  .error { color: var(--bad); font-size: 13px; margin-top: 8px; }
+  .ico { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+  @keyframes pop { 0% { transform: scale(.985); } 100% { transform: none; } }
+  @keyframes shimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
+  .skeleton { border-radius: 10px; background: linear-gradient(90deg, var(--soft) 0, var(--line) 50%, var(--soft) 100%);
+    background-size: 600px 100%; animation: shimmer 1.3s infinite linear; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

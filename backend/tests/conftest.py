@@ -15,7 +15,9 @@ import pytest
 
 _TMP = Path(tempfile.mkdtemp(prefix="oasis-tests-"))
 os.environ["DATABASE_PATH"] = str(_TMP / "test.sqlite")
-os.environ.setdefault("SECRETS_KEY", "")
+from cryptography.fernet import Fernet  # noqa: E402
+
+os.environ["SECRETS_KEY"] = Fernet.generate_key().decode()  # a throwaway key: signing and the vault work
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import db  # noqa: E402

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Oasis business</title>
+<!--
+  One business (MCP App for get_business_info): what it is, whether it is open now, the week's
+  hours with today marked, a map, and buttons to call, open its website, get directions, or ask
+  the assistant to show what it offers.
+-->
+<style>
+/* @theme */
+  .biz { overflow: hidden; animation: pop .18s ease-out; }
+  .top { padding: 16px 16px 12px; display: flex; gap: 12px; align-items: flex-start; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center; font-weight: 750; font-size: 18px;
+          color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), #6cc7ff); }
+  h2 { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 680; letter-spacing: -.01em; }
+  .kind { color: var(--muted); font-size: 12.5px; text-transform: capitalize; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 650; }
+  .badge i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge.open { background: var(--ok-bg); color: var(--ok); }
+  .badge.closed { background: var(--bad-bg); color: var(--bad); }
+  .badge.unknown { background: var(--soft); color: var(--muted); }
+  .badge.open i { box-shadow: 0 0 0 0 currentColor; animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(31, 138, 76, .45); } 70% { box-shadow: 0 0 0 6px rgba(31, 138, 76, 0); } 100% { box-shadow: 0 0 0 0 rgba(31, 138, 76, 0); } }
+  .desc { padding: 0 16px; color: var(--ink-2); font-size: 13.5px; margin: 0 0 12px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
+  .act { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 13px;
+         font-size: 13px; font-weight: 600; transition: background .12s, border-color .12s, transform .12s; }
+  .act:hover { background: var(--soft); transform: translateY(-1px); }
+  .act.main { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .act.main:hover { filter: brightness(1.06); background: var(--accent); }
+  .grid { display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--line); }
+  @media (min-width: 520px) { .grid.two { grid-template-columns: 1fr 1fr; } .grid.two .hours { border-right: 1px solid var(--line); } }
+  .hours { padding: 12px 16px 14px; }
+  .label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .label .ico { width: 13px; height: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 3px 0; }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  tr.today td { font-weight: 700; color: var(--ink); }
+  tr.today td:first-child::after { content: " •"; color: var(--accent); }
+  .closedday { color: var(--bad) !important; }
+  .where { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .addr { font-size: 13px; color: var(--ink-2); }
+  .map { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
+  .map iframe { display: block; width: 100%; height: 190px; border: 0; }
+  .skeleton.a { height: 44px; width: 44px; border-radius: 12px; }
+  .skeleton.b { height: 16px; width: 60%; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="app"><div class="card biz"><div class="top"><div class="skeleton a"></div><div style="flex:1"><div class="skeleton b"></div><div class="skeleton b" style="width:35%"></div></div></div></div></div>
+<!-- @bridge -->
+<script>
+(() => {
+  "use strict";
+  const { t, esc, icon, ICONS } = Oasis;
+  const S = {
+    en: { open: "Open now", closed: "Closed now", unknown: "Hours not given", closes: "closes {t}", opens: "opens {t}", hours: "Opening hours",
+          where: "Where", online: "Online only", call: "Call", website: "Website", directions: "Directions", offers: "See what they offer",
+          offersMsg: "Show me what {name} offers.", closedDay: "Closed", days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
+    fr: { open: "Ouvert", closed: "Fermé", unknown: "Horaires non indiqués", closes: "ferme à {t}", opens: "ouvre à {t}", hours: "Horaires",
+          where: "Adresse", online: "En ligne uniquement", call: "Appeler", website: "Site web", directions: "Itinéraire", offers: "Voir l'offre",
+          offersMsg: "Montre-moi ce que propose {name}.", closedDay: "Fermé", days: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"] },
+    it: { open: "Aperto ora", closed: "Chiuso ora", unknown: "Orari non indicati", closes: "chiude alle {t}", opens: "apre alle {t}", hours: "Orari",
+          where: "Dove", online: "Solo online", call: "Chiama", website: "Sito web", directions: "Indicazioni", offers: "Vedi l'offerta",
+          offersMsg: "Mostrami cosa offre {name}.", closedDay: "Chiuso", days: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"] },
+    de: { open: "Jetzt geöffnet", closed: "Jetzt geschlossen", unknown: "Öffnungszeiten fehlen", closes: "schliesst um {t}", opens: "öffnet um {t}",
+          hours: "Öffnungszeiten", where: "Adresse", online: "Nur online", call: "Anrufen", website: "Website", directions: "Route",
+          offers: "Angebot ansehen", offersMsg: "Zeig mir, was {name} anbietet.", closedDay: "Geschlossen",
+          days: ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] },
+  };
+  const L = (k, v) => t(S, k, v);
+  const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const app = document.getElementById("app");
+  let b = null;
+
+  const coords = (x) => `${Number(x.lat).toFixed(5)},${Number(x.lng).toFixed(5)}`;
+  const located = (x) => x && x.lat !== null && x.lat !== undefined && x.lng !== null && x.lng !== undefined;
+
+  function status() {
+    if (b.open_now === true) return `<span class="badge open"><i></i>${esc(L("open"))}${b.closes_at ? ` · ${esc(L("closes", { t: b.closes_at }))}` : ""}</span>`;
+    if (b.open_now === false) return `<span class="badge closed"><i></i>${esc(L("closed"))}${b.opens_at ? ` · ${esc(L("opens", { t: b.opens_at }))}` : ""}</span>`;
+    return b.online_only ? `<span class="badge unknown"><i></i>${esc(L("online"))}</span>` : `<span class="badge unknown"><i></i>${esc(L("unknown"))}</span>`;
+  }
+
+  function hoursTable() {
+    const h = b.opening_hours || {};
+    if (!DAYS.some((d) => h[d])) return "";
+    const rows = DAYS.map((d, n) => {
+      const x = h[d] || {};
+      const when = x.closed ? `<span class="closedday">${esc(L("closedDay"))}</span>` : x.open && x.close ? `${esc(x.open)} – ${esc(x.close)}` : "–";
+      return `<tr class="${b.today === d ? "today" : ""}"><td>${esc(L("days")[n])}</td><td>${when}</td></tr>`;
+    }).join("");
+    return `<div class="hours"><div class="label">${icon(ICONS.clock)}${esc(L("hours"))}</div><table>${rows}</table></div>`;
+  }
+
+  function where() {
+    if (b.online_only || !located(b)) return "";
+    const map = `https://maps.google.com/maps?q=${coords(b)}&z=15&output=embed`;
+    return `<div class="where"><div class="label">${icon(ICONS.pin)}${esc(L("where"))}</div>
+      ${b.address ? `<div class="addr">${esc(b.address)}</div>` : ""}
+      <div class="map"><iframe src="${esc(map)}" title="${esc(b.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`;
+  }
+
+  function render() {
+    if (!b) return;
+    const initial = (b.name || "?").trim().charAt(0).toUpperCase();
+    const actions = [
+      `<button class="act main" data-offers>${icon(ICONS.bag)}${esc(L("offers"))}</button>`,
+      b.phone ? `<button class="act" data-call>${icon(ICONS.phone)}${esc(L("call"))}</button>` : "",
+      b.website ? `<button class="act" data-web>${icon(ICONS.globe)}${esc(L("website"))}</button>` : "",
+      located(b) && !b.online_only ? `<button class="act" data-dir>${icon(ICONS.route)}${esc(L("directions"))}</button>` : "",
+    ].join("");
+    const hours = hoursTable(), place = where();
+    app.innerHTML = `<div class="card biz">
+      <div class="top"><div class="logo">${esc(initial)}</div><div><h2>${esc(b.name)}</h2><div class="kind">${esc(b.kind || "")}</div>${status()}</div></div>
+      ${b.description ? `<p class="desc">${esc(b.description)}</p>` : ""}
+      <div class="actions">${actions}</div>
+      ${hours || place ? `<div class="grid${hours && place ? " two" : ""}">${hours}${place}</div>` : ""}
+    </div><div class="brand"><i></i>Oasis</div>`;
+  }
+
+  Oasis.on("result", (r) => { if (r && r.name) { b = r; render(); } });
+  Oasis.on("context", () => render());
+  app.addEventListener("click", (e) => {
+    const x = e.target.closest("button");
+    if (!x || !b) return;
+    if ("offers" in x.dataset) Oasis.say(L("offersMsg", { name: b.name })).catch(() => undefined);
+    else if ("call" in x.dataset) Oasis.openLink(`tel:${b.phone.replace(/[^\d+]/g, "")}`);
+    else if ("web" in x.dataset) Oasis.openLink(b.website);
+    else if ("dir" in x.dataset) Oasis.openLink(`https://www.google.com/maps/dir/?api=1&destination=${coords(b)}`);
+  });
+
+  Oasis.start("oasis-business", "1.0.0");
+})();
+</script>
+</body>
+</html>

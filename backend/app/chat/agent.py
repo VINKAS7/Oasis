@@ -462,8 +462,8 @@ async def _answer(session: Any, emit: Emit, messages: list[dict[str, str]], loca
             detail["found"] = len(data.get("businesses", [])) + len(data.get("online", []))
         trace.event("tool", **detail)
         return data
-    # show_items is for assistants that render MCP Apps; this page draws its own cards from call_business_tool.
-    tools = [tool for tool in (await session.list_tools()).tools if tool.name not in ("show_items", "product_photo")]
+    # show_items and ask_user are for assistants that render MCP Apps; this page draws its own cards and asks in text.
+    tools = [tool for tool in (await session.list_tools()).tools if tool.name not in ("show_items", "product_photo", "ask_user")]
     names = {tool.name for tool in tools}
     system = SYSTEM.format(now=_now(), language=_language_text(language), location=location or "unknown (ask the visitor if you need it)",
                            known=_known_text(known), items=_items_text(items_shown or []), tools=_tools_text(tools))
