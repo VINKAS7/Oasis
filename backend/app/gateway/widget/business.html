@@ -45,7 +45,9 @@
   .where { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
   .addr { font-size: 13px; color: var(--ink-2); }
   .map { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
-  .map iframe { display: block; width: 100%; height: 190px; border: 0; }
+  .map { height: 210px; }
+  .map iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .map .fallback { height: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
   .skeleton.a { height: 44px; width: 44px; border-radius: 12px; }
   .skeleton.b { height: 16px; width: 60%; margin-top: 6px; }
 </style>
@@ -60,16 +62,16 @@
   const S = {
     en: { open: "Open now", closed: "Closed now", unknown: "Hours not given", closes: "closes {t}", opens: "opens {t}", hours: "Opening hours",
           where: "Where", online: "Online only", call: "Call", website: "Website", directions: "Directions", offers: "See what they offer",
-          offersMsg: "Show me what {name} offers.", closedDay: "Closed", days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
+          offersMsg: "Show me what {name} offers.", closedDay: "Closed", noMap: "The map can't be shown here.", openMaps: "Open in Google Maps", days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
     fr: { open: "Ouvert", closed: "Fermé", unknown: "Horaires non indiqués", closes: "ferme à {t}", opens: "ouvre à {t}", hours: "Horaires",
           where: "Adresse", online: "En ligne uniquement", call: "Appeler", website: "Site web", directions: "Itinéraire", offers: "Voir l'offre",
-          offersMsg: "Montre-moi ce que propose {name}.", closedDay: "Fermé", days: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"] },
+          offersMsg: "Montre-moi ce que propose {name}.", closedDay: "Fermé", noMap: "La carte ne peut pas s'afficher ici.", openMaps: "Ouvrir dans Google Maps", days: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"] },
     it: { open: "Aperto ora", closed: "Chiuso ora", unknown: "Orari non indicati", closes: "chiude alle {t}", opens: "apre alle {t}", hours: "Orari",
           where: "Dove", online: "Solo online", call: "Chiama", website: "Sito web", directions: "Indicazioni", offers: "Vedi l'offerta",
-          offersMsg: "Mostrami cosa offre {name}.", closedDay: "Chiuso", days: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"] },
+          offersMsg: "Mostrami cosa offre {name}.", closedDay: "Chiuso", noMap: "La mappa non può essere mostrata qui.", openMaps: "Apri in Google Maps", days: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"] },
     de: { open: "Jetzt geöffnet", closed: "Jetzt geschlossen", unknown: "Öffnungszeiten fehlen", closes: "schliesst um {t}", opens: "öffnet um {t}",
           hours: "Öffnungszeiten", where: "Adresse", online: "Nur online", call: "Anrufen", website: "Website", directions: "Route",
-          offers: "Angebot ansehen", offersMsg: "Zeig mir, was {name} anbietet.", closedDay: "Geschlossen",
+          offers: "Angebot ansehen", offersMsg: "Zeig mir, was {name} anbietet.", closedDay: "Geschlossen", noMap: "Die Karte kann hier nicht angezeigt werden.", openMaps: "In Google Maps öffnen",
           days: ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] },
   };
   const L = (k, v) => t(S, k, v);
@@ -99,10 +101,9 @@
 
   function where() {
     if (b.online_only || !located(b)) return "";
-    const map = `https://maps.google.com/maps?q=${coords(b)}&z=15&output=embed`;
     return `<div class="where"><div class="label">${icon(ICONS.pin)}${esc(L("where"))}</div>
       ${b.address ? `<div class="addr">${esc(b.address)}</div>` : ""}
-      <div class="map"><iframe src="${esc(map)}" title="${esc(b.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div>`;
+      <div class="map" id="bizmap"></div></div>`;
   }
 
   function render() {
@@ -121,6 +122,25 @@
       <div class="actions">${actions}</div>
       ${hours || place ? `<div class="grid${hours && place ? " two" : ""}">${hours}${place}</div>` : ""}
     </div><div class="brand"><i></i>Oasis</div>`;
+    mountMap();
+  }
+
+  // The interactive Google map; without it, Google's embed frame; if the assistant blocks that too, a link.
+  function mountMap() {
+    const el = document.getElementById("bizmap");
+    if (!el) return;
+    const link = () => {
+      el.innerHTML = `<div class="fallback">${esc(L("noMap"))}<button class="act" data-dir>${icon(ICONS.route)}${esc(L("openMaps"))}</button></div>`;
+    };
+    const embed = () => {
+      if (!el.isConnected) return;
+      el.innerHTML = `<iframe src="${esc(`https://maps.google.com/maps?q=${coords(b)}&z=15&output=embed`)}" title="${esc(b.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+      const frame = el.querySelector("iframe");
+      let loaded = false;
+      frame.addEventListener("load", () => { loaded = true; }, { once: true });
+      setTimeout(() => { if (!loaded && frame.isConnected) link(); }, 6000);
+    };
+    Oasis.pinMap(el, b, b.name, embed);
   }
 
   Oasis.on("result", (r) => { if (r && r.name) { b = r; render(); } });

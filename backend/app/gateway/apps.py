@@ -21,24 +21,28 @@ from mcp.server.apps import APP_MIME_TYPE, Apps
 from mcp.server.mcpserver.resources import Resource
 
 from .. import db
-from ..config import PUBLIC_API_URL
+from ..config import GOOGLE_MAPS_API_KEY, PUBLIC_API_URL
 
 DIR = Path(__file__).with_name("widget")
 # The places and business views embed Google Maps (keyless embed: maps.google.com redirects to www.google.com).
 MAP_FRAMES = ["https://www.google.com", "https://maps.google.com"]
 MAX_IMAGE_DOMAINS = 40
+# What the Google Maps JavaScript API loads and calls, for views that draw maps (when a key is set).
+MAPS_RESOURCES = ["https://maps.googleapis.com", "https://maps.gstatic.com", "https://*.googleapis.com", "https://*.gstatic.com",
+                  "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https://*.ggpht.com"]
+MAPS_CONNECT = ["https://maps.googleapis.com", "https://*.googleapis.com"]
 
 # Assistants cache a view by its URI: change the version when its file changes. They also keep
 # tool lists that name an older version, so earlier URIs keep serving the current view.
 VIEWS: dict[str, dict[str, Any]] = {
-    "items": {"uri": "ui://oasis/items-v9.html", "older": [f"ui://oasis/items-v{n}.html" for n in range(1, 9)], "file": "items.html",
-              "title": "Oasis cards", "frames": MAP_FRAMES, "geolocation": True, "images": True,
+    "items": {"uri": "ui://oasis/items-v10.html", "older": [f"ui://oasis/items-v{n}.html" for n in range(1, 10)], "file": "items.html",
+              "title": "Oasis cards", "frames": MAP_FRAMES, "geolocation": True, "images": True, "maps": True,
               "description": "Cards for businesses (nearest first, with a map) and for a business's menu, products, services or other "
                              "lists, with search, filters, photos and ordering."},
     "ask": {"uri": "ui://oasis/ask-v2.html", "older": ["ui://oasis/ask-v1.html"], "file": "ask.html", "title": "Oasis question", "frames": [], "geolocation": False,
-            "images": False, "description": "A question the user answers with a tap: yes/no, choices, a range, a rating, a number, a date or a time."},
-    "business": {"uri": "ui://oasis/business-v2.html", "older": ["ui://oasis/business-v1.html"], "file": "business.html", "title": "Oasis business", "frames": MAP_FRAMES,
-                 "geolocation": False, "images": False,
+            "images": False, "maps": False, "description": "A question the user answers with a tap: yes/no, choices, a range, a rating, a number, a date or a time."},
+    "business": {"uri": "ui://oasis/business-v3.html", "older": ["ui://oasis/business-v1.html", "ui://oasis/business-v2.html"],
+                 "file": "business.html", "title": "Oasis business", "frames": MAP_FRAMES, "geolocation": False, "images": False, "maps": True,
                  "description": "One business: open now or not, opening hours, map, and buttons to call, visit the website or get directions."},
 }
 RESOURCE_URI = VIEWS["items"]["uri"]
@@ -73,9 +77,15 @@ def image_domains() -> list[str]:
     return sorted(origins)[:MAX_IMAGE_DOMAINS]
 
 
+def _maps(view: str) -> bool:
+    return bool(VIEWS[view].get("maps") and GOOGLE_MAPS_API_KEY)
+
+
 def _ui(view: str, images: list[str]) -> dict[str, Any]:
     spec = VIEWS[view]
-    csp: dict[str, Any] = {"resourceDomains": images, "connectDomains": [], "frameDomains": spec["frames"]}
+    resources = images + (MAPS_RESOURCES if _maps(view) else [])
+    connect = MAPS_CONNECT if _maps(view) else []
+    csp: dict[str, Any] = {"resourceDomains": resources, "connectDomains": connect, "frameDomains": spec["frames"]}
     ui: dict[str, Any] = {"prefersBorder": False, "csp": csp}
     if spec["geolocation"]:
         ui["permissions"] = {"geolocation": {}}
@@ -89,7 +99,8 @@ def _resource_meta(view: str) -> dict[str, Any]:
     images = image_domains() if VIEWS[view]["images"] else []
     return {
         "ui": _ui(view, images),
-        "openai/widgetCSP": {"resource_domains": images, "connect_domains": [], "frame_domains": VIEWS[view]["frames"]},
+        "openai/widgetCSP": {"resource_domains": images + (MAPS_RESOURCES if _maps(view) else []),
+                             "connect_domains": MAPS_CONNECT if _maps(view) else [], "frame_domains": VIEWS[view]["frames"]},
         "openai/widgetDescription": VIEWS[view]["description"],
     }
 
@@ -101,6 +112,8 @@ def page(view: str) -> str:
         text = text.replace("/* @theme */", (DIR / "theme.css").read_text(encoding="utf-8"))
     if "<!-- @bridge -->" in text:
         text = text.replace("<!-- @bridge -->", "<script>\n" + (DIR / "bridge.js").read_text(encoding="utf-8") + "\n</script>")
+    if _maps(view):  # the browser key for interactive maps (see config.GOOGLE_MAPS_API_KEY)
+        text = text.replace("<head>", f"<head>\n<script>window.OASIS_MAPS_KEY = {json.dumps(GOOGLE_MAPS_API_KEY)};</script>", 1)
     return text
 
 

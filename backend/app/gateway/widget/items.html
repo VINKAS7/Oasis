@@ -154,6 +154,21 @@
   .skel { border-radius: 12px; background: linear-gradient(90deg, var(--soft) 0, var(--line) 50%, var(--soft) 100%); background-size: 600px 100%;
           animation: shimmer 1.3s infinite linear; }
   @keyframes shimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
+  /* v10: interactive Google map over the places */
+  .gmap { height: 280px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); margin: 0 0 12px; }
+  .gmap.small { height: 220px; margin: 8px 0 0; }
+  .gmap .fallback { height: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
+  .gmap iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .pin { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #d93025; color: #fff;
+         font-size: 11px; font-weight: 700; margin-right: 6px; flex-shrink: 0; }
+  .place .row .name { display: inline-flex; align-items: center; }
+  .place.flash { animation: flash 1s ease-out; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: none; } }
+  .iw { font: 13px/1.4 var(--font-sans, system-ui, sans-serif); color: #1c1f24; max-width: 220px; }
+  .iw b { display: block; font-size: 14px; margin-bottom: 2px; }
+  .iw .row2 { color: #5f6368; font-size: 12px; margin-bottom: 6px; }
+  .iw button { font: inherit; font-size: 12px; font-weight: 600; border: 0; border-radius: 999px; padding: 4px 10px; margin: 2px 4px 0 0; cursor: pointer; background: #0d8a78; color: #fff; }
+  .iw button.ghost { background: #eef0f2; color: #1c1f24; }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -252,6 +267,8 @@
       "Review order": "Vérifier la commande",
       "Tell me more about “{item}” from {b}.": "Dis-m'en plus sur « {item} » de {b}.",
       "Type a street, area or city.": "Saisissez une rue, un quartier ou une ville.",
+      "Farther away": "Plus loin",
+      "The map can't be shown here.": "La carte ne peut pas s'afficher ici.",
       "Search these items": "Rechercher dans ces articles",
       "Sort": "Trier",
       "Recommended": "Recommandés",
@@ -351,6 +368,8 @@
       "Review order": "Controlla l'ordine",
       "Tell me more about “{item}” from {b}.": "Dimmi di più su «{item}» di {b}.",
       "Type a street, area or city.": "Scrivi una via, una zona o una città.",
+      "Farther away": "Più lontano",
+      "The map can't be shown here.": "La mappa non può essere mostrata qui.",
       "Search these items": "Cerca tra questi articoli",
       "Sort": "Ordina",
       "Recommended": "Consigliati",
@@ -450,6 +469,8 @@
       "Review order": "Bestellung prüfen",
       "Tell me more about “{item}” from {b}.": "Erzähl mir mehr über «{item}» von {b}.",
       "Type a street, area or city.": "Geben Sie eine Strasse, ein Quartier oder eine Stadt ein.",
+      "Farther away": "Weiter entfernt",
+      "The map can't be shown here.": "Die Karte kann hier nicht angezeigt werden.",
       "Search these items": "In diesen Artikeln suchen",
       "Sort": "Sortieren",
       "Recommended": "Empfohlen",
@@ -570,7 +591,7 @@
   function show(result) {
     const sc = (result && (result.structuredContent || result)) || {};
     if (sc.need_location || Array.isArray(sc.businesses)) {
-      places = sc; data = null; selected = ""; error = ""; opening = "";
+      places = sc; data = null; selected = ""; error = ""; opening = ""; mapNode = null; mapKey = ""; mapApi = null;
       locError = sc.need_location && sc.reason === "location" ? sc.message || "" : "";
       if (sc.you) me = { lat: sc.you.lat, lng: sc.you.lng, label: sc.you.label, approximate: !!sc.you.approximate };
       render();
@@ -652,6 +673,99 @@
       host.displayMode = host.displayMode || mode;
     } catch { /* the host said no */ }
     render();
+  }
+  // ---- interactive Google maps (Maps JavaScript API, key from the server); embed frame or a link otherwise ----
+  let mapsState = window.OASIS_MAPS_KEY ? "idle" : "off";  // idle | loading | ready | failed | off
+  let mapsPromise = null;
+  const failMaps = () => { if (mapsState !== "failed") { mapsState = "failed"; render(); } };
+  window.gm_authFailure = failMaps;  // the key was refused (not allowed here): fall back
+  function loadMaps() {
+    if (mapsState === "off" || mapsState === "failed") return Promise.reject(new Error("maps off"));
+    if (window.google && google.maps && google.maps.Map) { mapsState = "ready"; return Promise.resolve(google.maps); }
+    if (mapsPromise) return mapsPromise;
+    mapsState = "loading";
+    mapsPromise = new Promise((resolve, reject) => {
+      const cb = "__oasisMapsReady";
+      const timer = setTimeout(() => reject(new Error("timeout")), 8000);
+      window[cb] = () => { clearTimeout(timer); mapsState = "ready"; resolve(google.maps); };
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(window.OASIS_MAPS_KEY)}&loading=async&callback=${cb}&v=weekly&language=${lang}`;
+      script.async = true;
+      script.onerror = () => { clearTimeout(timer); reject(new Error("blocked")); };
+      document.head.appendChild(script);
+    });
+    mapsPromise.catch(failMaps);
+    return mapsPromise;
+  }
+  const DARK_MAP = [
+    { elementType: "geometry", stylers: [{ color: "#1d2128" }] }, { elementType: "labels.text.fill", stylers: [{ color: "#9aa0a6" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#15191f" }] }, { featureType: "road", elementType: "geometry", stylers: [{ color: "#2c323b" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3a414c" }] }, { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e2a3a" }] },
+    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#22272f" }] }, { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#1b3326" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+  ];
+  const located = (b) => b && b.lat !== null && b.lat !== undefined && b.lng !== null && b.lng !== undefined;
+  /** A Google map in `el` with numbered pins for `list` (and "you"); returns {focus(id)}. */
+  function drawMap(maps, el, list, you) {
+    const dark = document.documentElement.classList.contains("dark");
+    const map = new maps.Map(el, { center: { lat: Number(list[0].lat), lng: Number(list[0].lng) }, zoom: 15, gestureHandling: "cooperative",
+      mapTypeControl: false, streetViewControl: false, fullscreenControl: true, clickableIcons: false, styles: dark ? DARK_MAP : null });
+    const bounds = new maps.LatLngBounds(), info = new maps.InfoWindow(), markers = {};
+    list.forEach((b, n) => {
+      const marker = new maps.Marker({ position: { lat: Number(b.lat), lng: Number(b.lng) }, map, title: b.name, zIndex: 10 + list.length - n,
+        label: { text: String(n + 1), color: "#ffffff", fontWeight: "700", fontSize: "12px" } });
+      bounds.extend(marker.getPosition());
+      markers[b.business_id] = marker;
+      marker.addListener("click", () => { openInfo(b, n); highlight(b.business_id); });
+    });
+    if (you && located(you)) {
+      const mine = new maps.Marker({ position: { lat: Number(you.lat), lng: Number(you.lng) }, map, title: tr("Your location"), zIndex: 1,
+        icon: { path: maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#1a73e8", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 3 } });
+      bounds.extend(mine.getPosition());
+    }
+    if (list.length > 1 || (you && located(you))) map.fitBounds(bounds, 48);
+    function openInfo(b, n) {
+      const box = document.createElement("div");
+      box.className = "iw";
+      box.innerHTML = `<b>${n + 1}. ${esc(b.name)}</b><div class="row2">${esc(b.kind || "")}${typeof b.distance_km === "number" ? ` · ${km(b.distance_km)}` : ""}</div>`;
+      const show = document.createElement("button"); show.textContent = tr("Show items");
+      show.onclick = () => openItems(b.business_id, places && places.query);
+      const dir = document.createElement("button"); dir.className = "ghost"; dir.textContent = tr("Directions ↗");
+      dir.onclick = () => openLink(directions(b));
+      box.append(show, dir);
+      info.setContent(box);
+      info.open({ anchor: markers[b.business_id], map });
+    }
+    return {
+      focus(id) {
+        const n = list.findIndex((b) => b.business_id === id);
+        if (n < 0) return;
+        map.panTo(markers[id].getPosition());
+        if (map.getZoom() < 15) map.setZoom(15);
+        openInfo(list[n], n);
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      },
+    };
+  }
+  function highlight(id) {
+    const card = app.querySelector(`.place[data-place="${CSS.escape(id)}"]`);
+    if (!card) return;
+    card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+    card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  // The overview map's element is kept between renders (zoom and info windows survive re-drawing the list).
+  let mapNode = null, mapKey = "", mapApi = null;
+  function mountPlacesMap(list, you) {
+    const slot = app.querySelector("#map-slot");
+    if (!slot) return;
+    const key = list.map((b) => b.business_id).join(",") + "|" + (you && located(you) ? `${you.lat},${you.lng}` : "");
+    if (mapNode && key === mapKey) { slot.replaceWith(mapNode); return; }
+    mapNode = document.createElement("div");
+    mapNode.className = "gmap";
+    mapKey = key; mapApi = null;
+    slot.replaceWith(mapNode);
+    const node = mapNode;
+    loadMaps().then((maps) => { if (node === mapNode) mapApi = drawMap(maps, node, list, you); }).catch(() => undefined);
   }
   const inCart = (id) => Object.entries(cart).filter(([k, q]) => q && splitKey(k)[0] === id).reduce((n, [, q]) => n + q, 0);
 
@@ -738,8 +852,9 @@
   }
 
   // ---- places: businesses nearest first, with a map ----
-  const placeList = () => (places ? [...(places.businesses || []), ...(places.online || [])] : []);
+  const placeList = () => (places ? [...(places.businesses || []), ...(places.farther || []), ...(places.online || [])] : []);
   const placeById = (id) => placeList().find((b) => b.business_id === id);
+  // (placeList includes the farther-away places too: see below)
   const km = (d) => (d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(d < 10 ? 1 : 0)} km`);
   const coords = (p) => `${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)}`;
   function mapSrc(b) {
@@ -749,28 +864,29 @@
   }
   const directions = (b) => `https://www.google.com/maps/dir/?api=1${me ? `&origin=${coords(me)}` : ""}&destination=${coords(b)}`;
 
-  function placeCard(b) {
+  function placeCard(b, n) {
     const id = esc(b.business_id);
-    const located = b.lat !== null && b.lat !== undefined && b.lng !== null && b.lng !== undefined;
-    const open = selected === b.business_id && located;
+    const interactive = mapsState !== "off" && mapsState !== "failed";
+    const open = selected === b.business_id && located(b) && !interactive;
+    const num = interactive && located(b) && typeof n === "number" ? `<span class="pin">${n + 1}</span>` : "";
     const dist = typeof b.distance_km === "number" ? `<span class="dist">${km(b.distance_km)}</span>` : b.online_only ? `<span class="dist">${tr("Online")}</span>` : "";
     const when = b.open_at_requested_time === true ? ` · ${tr("open then")}` : "";
     const hits = (b.matching_items || []).map((i) => `<span class="mi">${esc(i.name)}${i.price ? ` · ${esc(i.price)}` : ""}</span>`).join("");
     let map = "";
     if (open) {
-      map = `<div class="map"><iframe src="${esc(mapSrc(b))}" title="${tr("Map: {b}", { b: esc(b.name) })}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      map = `<div class="map"><iframe data-fallback-map src="${esc(mapSrc(b))}" title="${tr("Map: {b}", { b: esc(b.name) })}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
         <div class="maprow"><span class="tags">${me ? `${esc(me.label)} → ${esc(b.name)}` : esc(b.address || b.name)}</span>
         <span>${me ? "" : `<button class="link" data-route="${id}" ${locating ? "disabled" : ""}>${locating ? tr("Locating…") : tr("Route from my location")}</button> `}
         <button class="link" data-dir="${id}">${tr("Open in Google Maps ↗")}</button></span></div></div>
         ${locError ? `<div class="error">${esc(locError)}</div>` : ""}`;
     }
-    return `<div class="place${open ? " picked" : ""}">
-      <div class="row"><span class="name">${esc(b.name)}</span>${dist}</div>
+    return `<div class="place${open ? " picked" : ""}" data-place="${id}">
+      <div class="row"><span class="name">${num}${esc(b.name)}</span>${dist}</div>
       <div class="tags">${esc(b.kind)}${b.address ? ` · ${esc(b.address)}` : ""}${when}</div>
       ${b.description ? `<div class="desc">${esc(b.description)}</div>` : ""}
       ${hits ? `<div class="mis">${hits}</div>` : ""}
       <div class="actions"><button class="chip" data-items="${id}" ${opening ? "disabled" : ""}>${opening === b.business_id ? tr("Opening…") : tr("Show items")}</button>
-        ${located ? `<button class="chip" data-map="${id}">${open ? tr("Hide map") : tr("Map")}</button><button class="link" data-dir="${id}">${tr("Directions ↗")}</button>` : ""}
+        ${located(b) ? `<button class="chip" data-map="${id}">${open ? tr("Hide map") : tr("Map")}</button><button class="link" data-dir="${id}">${tr("Directions ↗")}</button>` : ""}
         ${b.online_only && b.website ? `<button class="link" data-open="${esc(b.website)}">${tr("Website ↗")}</button>` : ""}</div>
       ${map}</div>`;
   }
@@ -809,11 +925,30 @@
     if (error) html += `<div class="error">${esc(error)}</div>`;
     if (p.widened && list.length) html += `<p class="note" style="margin-top:0">${tr("Nothing within {km} km, so these are the closest.", { km: esc(p.radius_km) })}</p>`;
     if (!list.length) html += `<p class="empty">${tr(p.you ? "No place near you offers that yet." : online.length ? "No local place offers that yet." : "No business offers that yet.")}</p>`;
-    if (list.length) html += `<div class="places">${list.map(placeCard).join("")}</div>`;
-    if ((p.online || []).length) html += `<div class="section">${tr("Also online")}</div><div class="places">${p.online.map(placeCard).join("")}</div>`;
+    const far = p.farther || [];
+    const onMap = [...list, ...far].filter(located);
+    const showMap = onMap.length && mapsState !== "off" && mapsState !== "failed";
+    if (showMap) html += `<div id="map-slot"></div>`;
+    if (list.length) html += `<div class="places">${list.map((b, n) => placeCard(b, onMap.indexOf(b))).join("")}</div>`;
+    if (far.length) html += `<div class="section">${tr("Farther away")}</div><div class="places">${far.map((b) => placeCard(b, onMap.indexOf(b))).join("")}</div>`;
+    if ((p.online || []).length) html += `<div class="section">${tr("Also online")}</div><div class="places">${p.online.map((b) => placeCard(b)).join("")}</div>`;
     if (p.you) html += `<p class="note">${tr("Your location is used for this search only and never stored.")}</p>`;
     html += `<div class="brand"><i></i>Oasis</div>`;
     app.innerHTML = html;
+    if (showMap) mountPlacesMap(onMap, p.you || me);
+    // An embedded map that the assistant's sandbox blocks never loads: offer the link instead.
+    for (const frame of app.querySelectorAll("iframe[data-fallback-map]")) {
+      let loaded = false;
+      frame.addEventListener("load", () => { loaded = true; }, { once: true });
+      setTimeout(() => {
+        if (loaded || !frame.isConnected) return;
+        const id = frame.closest(".place") && frame.closest(".place").dataset.place, b = id && placeById(id);
+        const box = document.createElement("div");
+        box.className = "gmap small";
+        box.innerHTML = `<div class="fallback">${tr("The map can't be shown here.")}<button class="secondary" data-dir="${esc(id || "")}">${tr("Open in Google Maps ↗")}</button></div>`;
+        if (b) frame.replaceWith(box);
+      }, 6000);
+    }
   }
 
   function geolocate() {
@@ -960,7 +1095,10 @@
     // places
     if ("locate" in t.dataset) { useMyLocation(); return; }
     if (t.dataset.items) { openItems(t.dataset.items, places && places.query); return; }
-    if (t.dataset.map) { selected = selected === t.dataset.map ? "" : t.dataset.map; locError = ""; render(); return; }
+    if (t.dataset.map) {
+      if (mapApi && mapsState === "ready") { mapApi.focus(t.dataset.map); return; }
+      selected = selected === t.dataset.map ? "" : t.dataset.map; locError = ""; render(); return;
+    }
     if (t.dataset.dir) { const b = placeById(t.dataset.dir); if (b) openLink(directions(b)); return; }
     if (t.dataset.route) { routeFromMe(); return; }
     if ("backPlaces" in t.dataset) { places = backTo; backTo = null; data = null; render(); return; }

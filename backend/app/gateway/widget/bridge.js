@@ -123,6 +123,47 @@ const Oasis = (() => {
     setTimeout(fromOpenAI, 300);
   }
 
+  // ---- interactive Google maps (Maps JavaScript API; the key is put in by the server when set) ----
+  let mapsPromise = null, mapsFailed = !window.OASIS_MAPS_KEY;
+  const mapsFailHandlers = [];
+  window.gm_authFailure = () => { mapsFailed = true; mapsFailHandlers.forEach((f) => f()); };  // key refused here
+  function loadMaps() {
+    if (mapsFailed) return Promise.reject(new Error("maps unavailable"));
+    if (window.google && google.maps && google.maps.Map) return Promise.resolve(google.maps);
+    if (mapsPromise) return mapsPromise;
+    mapsPromise = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timeout")), 8000);
+      window.__oasisMapsReady = () => { clearTimeout(timer); resolve(google.maps); };
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(window.OASIS_MAPS_KEY)}&loading=async&callback=__oasisMapsReady&v=weekly&language=${lang}`;
+      script.async = true;
+      script.onerror = () => { clearTimeout(timer); reject(new Error("blocked")); };
+      document.head.appendChild(script);
+    });
+    mapsPromise.catch(() => { mapsFailed = true; });
+    return mapsPromise;
+  }
+  const DARK_MAP = [
+    { elementType: "geometry", stylers: [{ color: "#1d2128" }] }, { elementType: "labels.text.fill", stylers: [{ color: "#9aa0a6" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#15191f" }] }, { featureType: "road", elementType: "geometry", stylers: [{ color: "#2c323b" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3a414c" }] }, { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e2a3a" }] },
+    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#22272f" }] }, { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#1b3326" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+  ];
+  /** An interactive map with one pin in `el`; on failure, `fallback()` (embed frame or link) instead. */
+  function pinMap(el, point, title, fallback) {
+    mapsFailHandlers.push(fallback);
+    loadMaps().then((maps) => {
+      const dark = document.documentElement.classList.contains("dark");
+      const at = { lat: Number(point.lat), lng: Number(point.lng) };
+      const map = new maps.Map(el, { center: at, zoom: 16, gestureHandling: "cooperative", mapTypeControl: false, streetViewControl: false,
+        fullscreenControl: true, clickableIcons: false, styles: dark ? DARK_MAP : null });
+      const marker = new maps.Marker({ position: at, map, title });
+      const info = new maps.InfoWindow({ content: `<div style="font:600 13px system-ui,sans-serif;color:#1c1f24">${esc(title)}</div>` });
+      marker.addListener("click", () => info.open({ anchor: marker, map }));
+    }).catch(fallback);
+  }
+
   const icon = (path) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
   const ICONS = {
     check: '<path d="M20 6 9 17l-5-5"/>',
@@ -139,6 +180,6 @@ const Oasis = (() => {
     send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
   };
 
-  return { on, start, t, esc, callTool, openLink, say, tellModel, canFullscreen, displayMode, setDisplayMode, saved, save, icon, ICONS,
+  return { on, start, t, esc, callTool, openLink, say, tellModel, canFullscreen, displayMode, setDisplayMode, saved, save, icon, ICONS, pinMap,
            get lang() { return lang; }, get context() { return ctx; } };
 })();

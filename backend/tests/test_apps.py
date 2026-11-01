@@ -149,3 +149,19 @@ def test_stateless_requests_read_client_from_meta():
     assert mcp_server.shows_cards(ctx({"io.modelcontextprotocol/clientInfo": {"name": "Gemini"}})) is False
     assert mcp_server.shows_cards(ctx({"io.modelcontextprotocol/clientCapabilities": {"extensions": {"io.modelcontextprotocol/ui": {}}}})) is True
     assert mcp_server.shows_cards(ctx({})) is False
+
+
+def test_maps_key_and_domains_only_where_maps_are_drawn(monkeypatch):
+    monkeypatch.setattr(apps, "GOOGLE_MAPS_API_KEY", "test-key-123")
+    for view in ("items", "business"):
+        assert 'window.OASIS_MAPS_KEY = "test-key-123"' in apps.page(view)
+        csp = apps._resource_meta(view)["ui"]["csp"]
+        assert "https://maps.googleapis.com" in csp["resourceDomains"] and "https://maps.googleapis.com" in csp["connectDomains"]
+    assert "window.OASIS_MAPS_KEY = \"" not in apps.page("ask")
+    assert apps._resource_meta("ask")["ui"]["csp"]["connectDomains"] == []
+
+
+def test_no_maps_key_no_google_domains(monkeypatch):
+    monkeypatch.setattr(apps, "GOOGLE_MAPS_API_KEY", "")
+    assert "window.OASIS_MAPS_KEY = \"" not in apps.page("business")
+    assert apps._resource_meta("business")["ui"]["csp"]["resourceDomains"] == []

@@ -20,6 +20,10 @@ SECRETS_KEY = os.getenv("SECRETS_KEY", "").strip()
 GEOCODER_CONTACT = os.getenv("GEOCODER_CONTACT", "").strip()
 # Countries place names are looked up in first (ISO codes, comma-separated; empty: anywhere).
 GEOCODE_COUNTRIES = os.getenv("GEOCODE_COUNTRIES", "ch").strip()
+# A Google Maps JavaScript API browser key: the cards draw interactive maps with it (it is sent to the
+# assistants' card frames by design; restrict it to "Maps JavaScript API" in Google Cloud). Empty: the
+# cards fall back to Google's embed frame, or a link.
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "").strip()
 # The businesses' timezone: "open now" and "open at 19:00" are read in it.
 TIMEZONE = os.getenv("TIMEZONE", "Europe/Zurich").strip()
 
