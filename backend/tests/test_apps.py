@@ -115,8 +115,9 @@ def _ctx(name="", extensions=None, meta=None, agent=""):
 
     from mcp import types
 
-    caps = types.ClientCapabilities.model_validate({"extensions": extensions} if extensions else {})
-    params = SimpleNamespace(clientInfo=types.Implementation(name=name, version="1"), capabilities=caps)
+    params = types.InitializeRequestParams.model_validate({
+        "protocolVersion": "2025-06-18", "clientInfo": {"name": name or "x", "version": "1"},
+        "capabilities": {"extensions": extensions} if extensions else {}})
     return SimpleNamespace(session=SimpleNamespace(client_params=params), request_context=SimpleNamespace(meta=meta or {}),
                            headers={"user-agent": agent})
 
@@ -165,3 +166,21 @@ def test_no_maps_key_no_google_domains(monkeypatch):
     monkeypatch.setattr(apps, "GOOGLE_MAPS_API_KEY", "")
     assert "window.OASIS_MAPS_KEY = \"" not in apps.page("business")
     assert apps._resource_meta("business")["ui"]["csp"]["resourceDomains"] == []
+
+
+def test_shows_cards_never_raises():
+    from types import SimpleNamespace
+
+    broken = SimpleNamespace(session=SimpleNamespace(client_params=object()), request_context=SimpleNamespace(meta={}), headers={})
+    assert mcp_server.shows_cards(broken) in (True, False)
+
+
+def test_tools_run_for_claude_with_session_params():
+    # what crashed live: find_nearby / search_businesses from Claude (client params present, clientInfo in _meta)
+    import asyncio
+
+    ctx = _ctx("Anthropic", meta={"io.modelcontextprotocol/clientInfo": {"name": "Anthropic", "version": "1"}})
+    r = asyncio.run(mcp_server.search_businesses("pizza", None, ctx=ctx))
+    assert r["ok"] and r["businesses"] and "Shown as cards" in r["message"]
+    r = asyncio.run(mcp_server.find_nearby(query="pizza", ctx=ctx))
+    assert r["ok"] and r["businesses"]

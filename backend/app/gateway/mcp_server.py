@@ -81,6 +81,15 @@ def _request_meta(ctx: Context | None) -> dict[str, Any]:
 
 
 def shows_cards(ctx: Context | None) -> bool:
+    """See _shows_cards; never lets a surprise in the request break the tool (cards are the default)."""
+    try:
+        return _shows_cards(ctx)
+    except Exception:  # noqa: BLE001 - a wording choice must never fail a search
+        log.exception("shows_cards failed; assuming the assistant shows cards")
+        return True
+
+
+def _shows_cards(ctx: Context | None) -> bool:
     """Whether the calling assistant renders Oasis's cards: it declared MCP Apps support, or is one
     of the assistants known to (Claude, ChatGPT, the Oasis /chat page). Unknown ones get text.
 
@@ -101,9 +110,11 @@ def shows_cards(ctx: Context | None) -> bool:
     except (AttributeError, ValueError, LookupError):
         params = None
     if params is not None:
-        session_caps = params.capabilities.model_dump() if params.capabilities else {}
+        capabilities = getattr(params, "capabilities", None)
+        session_caps = capabilities.model_dump() if capabilities is not None else {}
         extensions = {**(session_caps.get("extensions") or {}), **extensions}
-        name = name or (params.clientInfo.name if params.clientInfo else "").lower()
+        client = getattr(params, "client_info", None) or getattr(params, "clientInfo", None)  # SDK spelling, then the JSON one
+        name = name or str(getattr(client, "name", "") or "").lower()
     if "io.modelcontextprotocol/ui" in extensions:
         return True
     try:
