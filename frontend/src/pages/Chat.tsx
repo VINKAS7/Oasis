@@ -7,7 +7,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { LanguagePicker } from "../components/LanguagePicker";
 import { cx } from "../components/ui";
 import { useT } from "../lib/i18n";
-import { knownBusinesses, loadThreads, newId, saveThreads, streamChat, toMessages } from "../lib/chat";
+import { itemsShown, knownBusinesses, loadThreads, newId, saveThreads, streamChat, toMessages } from "../lib/chat";
 import type { ChatEvent, ChatThread, ChatTurn } from "../types";
 
 const SUGGESTIONS = ["chat.suggest1", "chat.suggest2", "chat.suggest3", "chat.suggest4"] as const;
@@ -219,7 +219,7 @@ export function ChatPage() {
     setBusy(true);
     abort.current = new AbortController();
     try {
-      await streamChat(path, { messages: toMessages(history), location: place?.value ?? "", businesses: knownBusinesses(history), language: lang, ...extra }, (e) => updateTurn(threadId, reply.id, (t) => applyEvent(t, e)), abort.current.signal);
+      await streamChat(path, { messages: toMessages(history), location: place?.value ?? "", businesses: knownBusinesses(history), items_shown: itemsShown(history), language: lang, ...extra }, (e) => updateTurn(threadId, reply.id, (t) => applyEvent(t, e)), abort.current.signal);
     } catch (err) {
       const stopped = (err as Error).name === "AbortError";
       updateTurn(threadId, reply.id, (t) => (stopped ? { ...t, text: t.text || stopText, steps: t.steps?.map((s) => ({ ...s, done: true })) } : { ...t, error: (err as Error).message }));
@@ -242,7 +242,7 @@ export function ChatPage() {
     const c = turn.confirm;
     updateTurn(thread.id, turn.id, (t) => ({ ...t, confirm: { ...c, state: "confirmed" } }));
     const yes: ChatTurn = { id: newId(), role: "user", text: t("chat.yes") };
-    void run("/api/chat/confirm", [...turns, yes], { business_id: c.business_id, tool: c.tool, inputs: c.inputs }, [yes], thread.title);
+    void run("/api/chat/confirm", [...turns, yes], { business_id: c.business_id, tool: c.tool, inputs: c.inputs, token: c.token }, [yes], thread.title);
   };
 
   const cancel = (turn: ChatTurn) => {

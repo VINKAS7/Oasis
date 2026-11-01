@@ -28,6 +28,11 @@ class ProviderError(RuntimeError):
     """A provider call failed in a way worth showing to the admin."""
 
 
+class IncompleteAnswer(ProviderError):
+    """The model answered, but not in a usable shape: invalid JSON, or cut off at max tokens.
+    Asking again usually works."""
+
+
 @dataclass
 class ProviderConfig:
     kind: str
@@ -36,6 +41,12 @@ class ProviderConfig:
     model: str
     effort: str = ""
     max_tokens: int = 4096
+    temperature: float | None = None  # None: the provider's default
+    timeout: float = 180.0
+
+# OpenAI-compatible servers that rejected response_format json_schema (base URL -> False): they get
+# json_object plus the schema in the prompt from then on.
+_SCHEMA_SUPPORT: dict[str, bool] = {}
 
 
 @dataclass
@@ -75,7 +86,7 @@ def _anthropic_content(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 async def _anthropic(cfg: ProviderConfig, system: str, messages: list[dict[str, Any]], json_schema: dict[str, Any] | None) -> Completion:
-    client = anthropic.AsyncAnthropic(api_key=cfg.api_key, base_url=cfg.base_url or None, timeout=180.0, max_retries=2)
+    client = anthropic.AsyncAnthropic(api_key=cfg.api_key, base_url=cfg.base_url or None, timeout=cfg.timeout, max_retries=2)
     output_config: dict[str, Any] = {}
     if cfg.effort and cfg.effort != "none":
         output_config["effort"] = cfg.effort
@@ -116,7 +127,7 @@ async def _anthropic(cfg: ProviderConfig, system: str, messages: list[dict[str, 
         raise ProviderError(f"The model declined this request (category: {category or 'unspecified'})")
     text = "".join(b.text for b in resp.content if b.type == "text")
     if resp.stop_reason == "max_tokens" and json_schema is not None:
-        raise ProviderError("The answer hit max_tokens before it was complete; raise max tokens for this task")
+        raise IncompleteAnswer("The answer hit max_tokens before it was complete; raise max tokens for this task")
     return Completion(text=text, input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens, raw_stop=resp.stop_reason)
 
 
@@ -137,19 +148,35 @@ def _chat_content(parts: list[dict[str, Any]]) -> list[dict[str, Any]] | str:
 
 async def _chat_completions(cfg: ProviderConfig, system: str, messages: list[dict[str, Any]], json_schema: dict[str, Any] | None) -> Completion:
     base = (cfg.base_url or "https://api.openai.com/v1").rstrip("/")
+    if cfg.kind == "openai_compatible" and json_schema is not None and _SCHEMA_SUPPORT.get(base, True):
+        # Many compatible servers (vLLM, Ollama, LiteLLM...) enforce a JSON Schema too, which keeps
+        # small models on the exact keys. Those that refuse it are remembered and get json_object.
+        try:
+            return await _chat_once(cfg, base, system, messages, json_schema, strict_schema=True)
+        except _SchemaRejected:
+            _SCHEMA_SUPPORT[base] = False
+    return await _chat_once(cfg, base, system, messages, json_schema, strict_schema=cfg.kind == "openai")
+
+
+class _SchemaRejected(Exception):
+    pass
+
+
+async def _chat_once(cfg: ProviderConfig, base: str, system: str, messages: list[dict[str, Any]], json_schema: dict[str, Any] | None,
+                     strict_schema: bool) -> Completion:
     body: dict[str, Any] = {"model": cfg.model}
-    if cfg.kind == "openai":
-        body["max_completion_tokens"] = cfg.max_tokens
-        if json_schema is not None:
+    body["max_completion_tokens" if cfg.kind == "openai" else "max_tokens"] = cfg.max_tokens
+    if json_schema is not None:
+        if strict_schema:
             body["response_format"] = {"type": "json_schema", "json_schema": {"name": "result", "schema": json_schema, "strict": True}}
-    else:
-        body["max_tokens"] = cfg.max_tokens
-        if json_schema is not None:
-            # json_schema support varies across compatible servers; json_object plus the schema
-            # in the prompt is the form nearly all of them accept.
+        else:
             body["response_format"] = {"type": "json_object"}
+        if cfg.kind != "openai":
+            # Also in the prompt: servers that accept response_format but ignore the schema still follow it.
             schema_note = "Reply with one JSON object only, matching this JSON Schema:\n" + json.dumps(json_schema)
             system = f"{system}\n\n{schema_note}" if system else schema_note
+    if cfg.temperature is not None:
+        body["temperature"] = cfg.temperature
     if cfg.effort in _REASONING_EFFORTS:
         # Ollama maps this to its `think` switch: "none" turns Qwen3's thinking off.
         body["reasoning_effort"] = cfg.effort
@@ -160,10 +187,14 @@ async def _chat_completions(cfg: ProviderConfig, system: str, messages: list[dic
     if cfg.api_key:
         headers["authorization"] = f"Bearer {cfg.api_key}"
     try:
-        async with httpx.AsyncClient(timeout=180.0) as client:
+        async with httpx.AsyncClient(timeout=cfg.timeout) as client:
             resp = await client.post(f"{base}/chat/completions", headers=headers, json=body)
+    except httpx.TimeoutException as exc:
+        raise ProviderError(f"{base} took longer than {cfg.timeout:g} s to answer") from exc
     except httpx.HTTPError as exc:
         raise ProviderError(f"Could not reach {base}: {exc.__class__.__name__}") from exc
+    if resp.status_code in (400, 422) and strict_schema and cfg.kind == "openai_compatible":
+        raise _SchemaRejected()
     if resp.status_code >= 400:
         raise ProviderError(f"Provider error {resp.status_code}: {_error_message(resp)}")
     data = resp.json()
@@ -175,6 +206,8 @@ async def _chat_completions(cfg: ProviderConfig, system: str, messages: list[dic
         raise ProviderError("The provider returned an unexpected response shape") from exc
     if choice.get("message", {}).get("refusal"):
         raise ProviderError(f"The model declined this request: {choice['message']['refusal']}")
+    if choice.get("finish_reason") == "length" and json_schema is not None:
+        raise IncompleteAnswer("The answer hit max_tokens before it was complete; raise max tokens for this task")
     usage = data.get("usage") or {}
     return Completion(
         text=text,
@@ -259,4 +292,4 @@ def parse_json(text: str) -> Any:
             return json.loads(text[start : end + 1])
         except ValueError:
             pass
-    raise ProviderError("The model did not return valid JSON")
+    raise IncompleteAnswer("The model did not return valid JSON")

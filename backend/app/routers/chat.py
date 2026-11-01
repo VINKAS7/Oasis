@@ -31,7 +31,7 @@ def _visitor(request: Request) -> str:
 
 
 def _rate_limit(key: str) -> None:
-    limit = settings.get("ai.user_requests_per_minute")
+    limit = settings.get("chat.public_requests_per_minute")
     window = _recent[key]
     cutoff = time.monotonic() - 60
     while window and window[0] < cutoff:
@@ -51,6 +51,12 @@ class KnownBusiness(BaseModel):
     name: str = Field(max_length=120)
 
 
+class ShownItem(BaseModel):
+    business_id: str = Field(max_length=80)
+    id: str = Field(max_length=160)
+    name: str = Field(max_length=160)
+
+
 class ChatIn(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=30)
     location: str = Field(default="", max_length=200)
@@ -58,12 +64,15 @@ class ChatIn(BaseModel):
     language: Literal["", "en", "fr", "it", "de"] = ""
     # Businesses found earlier in this chat, so follow-ups ("their menu?") use the real business_id.
     businesses: list[KnownBusiness] = Field(default_factory=list, max_length=20)
+    # Items the page showed as cards earlier in this chat, so "order the second one" has real ids.
+    items_shown: list[ShownItem] = Field(default_factory=list, max_length=80)
 
 
 class ConfirmIn(ChatIn):
     business_id: str = Field(min_length=1, max_length=80)
     tool: str = Field(min_length=1, max_length=80)
     inputs: dict[str, Any] = Field(default_factory=dict)
+    token: str = Field(min_length=1, max_length=80)  # from the confirm card: this exact action was proposed
 
 
 def _ndjson(events: AsyncIterator[dict[str, Any]]) -> StreamingResponse:
@@ -80,16 +89,20 @@ async def chat(body: ChatIn, request: Request) -> StreamingResponse:
     if body.messages[-1].role != "user":
         raise HTTPException(400, "The last message must be the visitor's")
     _rate_limit(_visitor(request))
-    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), [b.model_dump() for b in body.businesses], language=body.language))
+    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), [b.model_dump() for b in body.businesses],
+                                language=body.language, items_shown=[i.model_dump() for i in body.items_shown]))
 
 
 @router.post("/confirm")
 async def confirm(body: ConfirmIn, request: Request) -> StreamingResponse:
     """The visitor clicked Confirm on an action the assistant prepared: run exactly that call."""
     _rate_limit(_visitor(request))
+    if not agent.check_confirm_token(body.token, body.business_id, body.tool, body.inputs):
+        raise HTTPException(400, "This confirmation has expired or doesn't match what was proposed. Ask again, then confirm.")
     confirmed = {"business_id": body.business_id, "tool": body.tool, "inputs": body.inputs}
     known = [b.model_dump() for b in body.businesses]
-    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), known, confirmed=confirmed, language=body.language))
+    return _ndjson(agent.stream([m.model_dump() for m in body.messages], body.location.strip(), known, confirmed=confirmed, language=body.language,
+                                items_shown=[i.model_dump() for i in body.items_shown]))
 
 
 class OrderLine(BaseModel):

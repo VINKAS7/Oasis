@@ -20,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "ai.analyze_pages": True,
     "ai.send_screenshots": False,
     "ai.user_requests_per_minute": 20,
+    # The public customer chat (/chat), per visitor IP; each message can take several AI calls.
+    "chat.public_requests_per_minute": 12,
 }
 
 

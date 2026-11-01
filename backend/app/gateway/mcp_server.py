@@ -49,6 +49,20 @@ def _business(ref: str) -> str:
                                "and take the business_id from the results; never make one up.")
 
 
+def _with_tools(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each business with its list tool (menu, products, services: what show_items and
+    call_business_tool open) and whether it takes orders, so an assistant can go straight there."""
+    out = []
+    for b in found:
+        try:
+            listed = service.list_tools(b["business_id"])
+        except service.GatewayError:
+            listed = []
+        cards = [t["name"] for t in listed if t.get("shows_as_cards")]
+        out.append({**b, "catalog_tool": cards[0] if cards else "", "takes_orders": any(t["name"] == "request_order" for t in listed)})
+    return out
+
+
 def _hinted_location(ctx: Context | None) -> dict[str, Any] | None:
     """The approximate location some assistants send with a call (ChatGPT: openai/userLocation)."""
     try:
@@ -120,6 +134,7 @@ async def find_nearby(
         else:
             message = (f"No business on Oasis offers {what} yet, anywhere, so the user's location wouldn't change this: "
                        "say so plainly and don't ask for their location for it.")
+        found["businesses"], found["online"] = _with_tools(found["businesses"]), _with_tools(found["online"])
         return {"ok": True, "need_location": True, "query": query, "type": type, "radius_km": radius_km,
                 "count": n, **found, "message": message}
     found = await directory.find(query, type, (you["lat"], you["lng"]), radius_km, keywords or [], open_at, day)
@@ -132,6 +147,7 @@ async def find_nearby(
         message = f"Nothing matching within {directory.WIDEST_KM:g} km of {you['label']}."
     if found["online"]:
         message += f" Online: {', '.join(b['name'] for b in found['online'][:3])}."
+    found["businesses"], found["online"] = _with_tools(near), _with_tools(found["online"])
     return {"ok": True, "query": query, "you": you, "count": len(near), **found, "message": message}
 
 
@@ -142,6 +158,7 @@ async def search_businesses(query: str, type: str | None = None) -> dict[str, An
     query: the user's words.
     type: a kind of business (optional), as in find_nearby."""
     found, mode = await directory.search(query, type, with_mode=True)
+    found = _with_tools(found)
     return {"ok": True, "query": query, "count": len(found), "search_mode": mode, "businesses": found,
             "message": "Shown as cards; call show_items with a business and search= the user's words to show its matching items." if found
             else "No business offers that yet."}
@@ -175,9 +192,12 @@ async def call_business_tool(business_id: str, tool: str, inputs: dict[str, Any]
     user_confirmed: set to true only after the user said yes to exactly this action (needed for tools that take an action or use personal details)."""
     try:
         bid = _business(business_id)
-        return {**await service.call_tool(bid, tool, inputs or {}, user_confirmed), "business_id": bid}
     except service.GatewayError as e:
         return _error(e)
+    try:
+        return {**await service.call_tool(bid, tool, inputs or {}, user_confirmed), "business_id": bid}
+    except service.GatewayError as e:
+        return {**_error(e), "business_id": bid}
 
 
 @mcp.tool(title="Show a business's items", annotations=READ, meta=apps.ui_meta())

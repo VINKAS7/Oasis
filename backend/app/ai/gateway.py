@@ -5,6 +5,7 @@ which provider, model and key the admin assigned to it (or the default route), m
 call, and writes a row to ai_calls. No other module talks to an AI provider or sees a key.
 """
 
+import dataclasses
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -128,8 +129,19 @@ async def run(
     user_id: str | None = None,
     business_id: str | None = None,
     route: Route | None = None,
+    temperature: float | None = None,
+    timeout: float | None = None,
 ) -> AIResult:
+    """One model call through the admin's route for `task`, logged to ai_calls. temperature and
+    timeout override the route's for this call (the customer chat wants steady, quick steps)."""
     route = route or resolve(task)
+    if temperature is not None or timeout is not None:
+        changes: dict[str, Any] = {}
+        if temperature is not None:
+            changes["temperature"] = temperature
+        if timeout is not None:
+            changes["timeout"] = timeout
+        route = dataclasses.replace(route, config=dataclasses.replace(route.config, **changes))
     if not route.supports_vision:
         messages = [{**m, "content": [p for p in m["content"] if p["type"] != "image"]} for m in messages]
     started = time.monotonic()

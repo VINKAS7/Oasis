@@ -313,6 +313,7 @@ export interface PlatformSettings {
   "ai.analyze_pages": boolean;
   "ai.send_screenshots": boolean;
   "ai.user_requests_per_minute": number;
+  "chat.public_requests_per_minute": number;
 }
 
 export interface AdminWorkspace {
@@ -644,6 +645,9 @@ export interface ChatBusiness {
   /** exact: every word matched; similar: found by meaning; name: the query named it; all: no query. */
   match?: "exact" | "similar" | "name" | "all";
   matching_items?: { id: string; name: string; price: string }[];
+  /** The business's list tool (menu, products...) and whether it takes orders through Oasis. */
+  catalog_tool?: string;
+  takes_orders?: boolean;
 }
 
 export interface ChatConfirm {
@@ -652,6 +656,8 @@ export interface ChatConfirm {
   tool: string;
   inputs: Record<string, unknown>;
   would_send: Record<string, unknown>;
+  /** Signed by the server: lets /api/chat/confirm run exactly this action, for a few minutes. */
+  token: string;
 }
 
 /** One NDJSON line from POST /api/chat. */

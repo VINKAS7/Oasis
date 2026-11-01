@@ -29,11 +29,30 @@ export function toMessages(turns: ChatTurn[]): { role: "user" | "assistant"; con
   return turns.filter((t) => t.text.trim()).map((t) => ({ role: t.role, content: t.text.slice(0, 4000) })).slice(-30);
 }
 
-/** Businesses already shown in this chat, so follow-up questions use their real ids. */
+/** Businesses already met in this chat (search results, menus opened, confirm cards), most recent
+ *  last, so follow-up questions ("their menu?") use their real ids. */
 export function knownBusinesses(turns: ChatTurn[]): { business_id: string; name: string }[] {
   const seen = new Map<string, string>();
-  for (const t of turns) for (const b of t.businesses ?? []) seen.set(b.business_id, b.name);
+  const add = (id: string | undefined, name: string | undefined) => {
+    if (!id) return;
+    seen.delete(id);
+    seen.set(id, name || id);
+  };
+  for (const t of turns) {
+    for (const b of t.businesses ?? []) add(b.business_id, b.name);
+    add(t.catalog?.business_id, t.catalog?.business_name);
+    add(t.confirm?.business_id, t.confirm?.business_name);
+  }
   return [...seen].slice(-20).map(([business_id, name]) => ({ business_id, name }));
+}
+
+/** The items shown as cards most recently (ids and names), so "order the second one" or "the
+ *  black one in M" can be ordered by id. */
+export function itemsShown(turns: ChatTurn[]): { business_id: string; id: string; name: string }[] {
+  const last = [...turns].reverse().find((t) => t.catalog?.items.length);
+  if (!last?.catalog) return [];
+  const c = last.catalog;
+  return c.items.slice(0, 60).map((i) => ({ business_id: c.business_id, id: i.id.slice(0, 160), name: i.name.slice(0, 160) }));
 }
 
 // Chats are kept in this browser only: the public chat has no accounts.

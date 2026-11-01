@@ -78,7 +78,10 @@ export function AdminCrawlerSettings() {
             label="Send page screenshots to the AI"
             hint="Better understanding of image-heavy sites, at a higher token cost. Only for providers that accept images."
           />
-          <div className="max-w-xs">{num("ai.user_requests_per_minute", "Owner AI requests per minute", "Per user, for /api/ai/complete", 1, 600)}</div>
+          <div className="grid max-w-xl gap-4 sm:grid-cols-2">
+            {num("ai.user_requests_per_minute", "Owner AI requests per minute", "Per user, for /api/ai/complete", 1, 600)}
+            {num("chat.public_requests_per_minute", "Customer chat messages per minute", "Per visitor, on the public /chat page", 1, 600)}
+          </div>
         </div>
       </Card>
       <ErrorNote>{error}</ErrorNote>
