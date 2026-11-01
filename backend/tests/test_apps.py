@@ -135,3 +135,17 @@ def test_which_assistants_get_cards():
 def test_ask_user_in_text_only_apps():
     r = mcp_server.ask_user(question="Which size?", kind="single_choice", options=["S", "M", "L"], ctx=_ctx("Gemini"))
     assert r["ok"] and r["shown_as_card"] is False and "ask the user in plain text" in r["message"] and "S, M, L" in r["message"]
+
+
+def test_stateless_requests_read_client_from_meta():
+    # stateless_http: no session params, the client is named in each request's _meta
+    from types import SimpleNamespace
+
+    def ctx(meta):
+        return SimpleNamespace(session=SimpleNamespace(client_params=None), request_context=SimpleNamespace(meta=meta), headers={})
+
+    assert mcp_server.shows_cards(ctx({"io.modelcontextprotocol/clientInfo": {"name": "Anthropic", "version": "1"}})) is True
+    assert mcp_server.shows_cards(ctx({"io.modelcontextprotocol/clientInfo": {"name": "claude-code"}})) is True
+    assert mcp_server.shows_cards(ctx({"io.modelcontextprotocol/clientInfo": {"name": "Gemini"}})) is False
+    assert mcp_server.shows_cards(ctx({"io.modelcontextprotocol/clientCapabilities": {"extensions": {"io.modelcontextprotocol/ui": {}}}})) is True
+    assert mcp_server.shows_cards(ctx({})) is False

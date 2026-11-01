@@ -70,28 +70,42 @@ CARD_HOSTS = ("claude", "anthropic", "chatgpt", "openai", "oasis-chat")
 TEXT_HOSTS = ("gemini", "google")
 
 
+def _request_meta(ctx: Context | None) -> dict[str, Any]:
+    try:
+        meta = ctx.request_context.meta if ctx is not None else None
+    except (AttributeError, ValueError, LookupError):
+        return {}
+    if meta is None:
+        return {}
+    return meta if isinstance(meta, dict) else (meta.model_dump(by_alias=True) if hasattr(meta, "model_dump") else {})
+
+
 def shows_cards(ctx: Context | None) -> bool:
     """Whether the calling assistant renders Oasis's cards: it declared MCP Apps support, or is one
-    of the assistants known to (Claude, ChatGPT, the Oasis /chat page). Unknown ones get text."""
+    of the assistants known to (Claude, ChatGPT, the Oasis /chat page). Unknown ones get text.
+
+    The gateway is stateless (no session between requests), so the client's name and capabilities
+    are read from each request's _meta (io.modelcontextprotocol/clientInfo, .../clientCapabilities),
+    falling back to the session's initialize parameters when there is one."""
     if ctx is None:
         return True
+    meta = _request_meta(ctx)
+    if any(str(k).startswith("openai/") for k in meta):
+        return True  # ChatGPT
+    info = meta.get("io.modelcontextprotocol/clientInfo") or {}
+    caps = meta.get("io.modelcontextprotocol/clientCapabilities") or {}
+    name = str(info.get("name", "") if isinstance(info, dict) else "").lower()
+    extensions = (caps.get("extensions") or {}) if isinstance(caps, dict) else {}
     try:
         params = ctx.session.client_params
     except (AttributeError, ValueError, LookupError):
         params = None
-    name = ""
     if params is not None:
-        caps = params.capabilities.model_dump() if params.capabilities else {}
-        if "io.modelcontextprotocol/ui" in (caps.get("extensions") or {}):
-            return True
-        name = (params.clientInfo.name if params.clientInfo else "").lower()
-    try:
-        meta = ctx.request_context.meta
-        meta = meta if isinstance(meta, dict) else (meta.model_dump() if meta is not None else {})
-    except (AttributeError, ValueError, LookupError):
-        meta = {}
-    if any(str(k).startswith("openai/") for k in meta):
-        return True  # ChatGPT
+        session_caps = params.capabilities.model_dump() if params.capabilities else {}
+        extensions = {**(session_caps.get("extensions") or {}), **extensions}
+        name = name or (params.clientInfo.name if params.clientInfo else "").lower()
+    if "io.modelcontextprotocol/ui" in extensions:
+        return True
     try:
         agent = str((ctx.headers or {}).get("user-agent", "")).lower()
     except (AttributeError, ValueError, LookupError):
