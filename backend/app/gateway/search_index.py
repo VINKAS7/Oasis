@@ -74,8 +74,12 @@ def items_of(conn, business: dict[str, Any]) -> list[dict[str, Any]]:
         rows = conn.execute("SELECT * FROM products WHERE business_id = ? AND active = 1 ORDER BY sort, created_at", (business["id"],)).fetchall()
         return [catalog.item(r, business["shop_template"]) for r in rows]
     out: list[dict[str, Any]] = []
-    for (items,) in conn.execute("SELECT items FROM item_snapshots WHERE business_id = ?", (business["id"],)):
-        out += [i for i in json.loads(items) if isinstance(i, dict) and i.get("name")]
+    seen: set[str] = set()
+    for (items,) in conn.execute("SELECT items FROM item_snapshots WHERE business_id = ? ORDER BY fetched_at DESC", (business["id"],)):
+        for i in json.loads(items):
+            if isinstance(i, dict) and i.get("name") and (i.get("id") or i["name"]) not in seen:
+                seen.add(i.get("id") or i["name"])
+                out.append(i)
     return out
 
 

@@ -22,6 +22,10 @@ from . import orders, signing
 PUBLISHED = {"safe_working", "sensitive"}
 BUSINESS_LIMIT_PER_MIN = 120
 _calls: dict[str, deque[float]] = defaultdict(deque)
+# A catalog (item_list tool, no inputs) read from the website is reused this long: opening the
+# menu again, or a second visitor asking, doesn't start another browser. Signed afresh each time.
+CATALOG_FRESH_S = 900
+_catalogs: dict[tuple[str, int], tuple[float, Any]] = {}
 
 
 class GatewayError(Exception):
@@ -200,21 +204,33 @@ async def call_tool(business_id: str, name: str, inputs: dict[str, Any], user_co
         business=business,
     )
     run_tool = engine.Tool(name, json.loads(tool["runner"]), schema)
-    try:
-        result = await asyncio.to_thread(_run_isolated, run_tool, ctx, values)
-    except engine.NotAllowed as exc:
-        _log(business_id, tool, name, "failed", masked, message=str(exc), started=started)
-        raise GatewayError("failed", f"The tool could not run: {exc}") from exc
-    if not result.ok:
-        _log(business_id, tool, name, "failed", masked, message=result.message, started=started)
-        raise GatewayError("failed", f"{business['name']}'s system did not accept this: {result.message}")
+    cache_key = (tool["tool_id"], tool["version"])
+    cacheable = run_tool.runner.get("kind") == "item_list" and not values
+    cached = _catalogs.get(cache_key) if cacheable else None
+    reused = bool(cached and time.monotonic() - cached[0] < CATALOG_FRESH_S)
+    if reused:
+        result = engine.RunResult(ok=True, output=cached[1], message="")
+    else:
+        try:
+            result = await asyncio.to_thread(_run_isolated, run_tool, ctx, values)
+        except engine.NotAllowed as exc:
+            _log(business_id, tool, name, "failed", masked, message=str(exc), started=started)
+            raise GatewayError("failed", f"The tool could not run: {exc}") from exc
+        if not result.ok:
+            if cached:  # the site is down or changed: the last good copy beats nothing
+                result, reused = engine.RunResult(ok=True, output=cached[1], message=""), True
+            else:
+                _log(business_id, tool, name, "failed", masked, message=result.message, started=started)
+                raise GatewayError("failed", f"{business['name']}'s system did not accept this: {result.message}")
+        elif cacheable:
+            _catalogs[cache_key] = (time.monotonic(), result.output)
 
     personal_values = {str(inputs[k]) for k, v in masked.items() if v == MASK and k in inputs}
     _log(business_id, tool, name, "ok", masked, result=mask_data(result.output, personal_values), message=result.message, started=started)
     signed = signing.sign(business_id, {"business_id": business_id, "business_name": business["name"], "tool": name, "version": tool["version"], "result": result.output})
     out = {"ok": True, "business": business["name"], "tool": name, "result": result.output, "signed": signed}
     if run_tool.runner.get("kind") in ("item_list", "shop_catalog"):
-        if run_tool.runner.get("kind") == "item_list":
+        if run_tool.runner.get("kind") == "item_list" and not reused:
             orders.save_snapshot(business_id, tool["tool_id"], result.output)
         with db.session() as conn:
             out["can_order"] = orders.available(conn, business)

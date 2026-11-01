@@ -206,7 +206,8 @@ async def show_items(business_id: str, tool: str | None = None, search: str | No
             out["search"] = search
             out.pop("signed", None)  # the signature covers the whole list, not this selection
             out["message"] = (f"{len(shown)} of {len(items)} items match “{search}”." if matched
-                              else f"Nothing matches “{search}” exactly; showing all {len(items)} items.")
+                              else f"Nothing matches “{search}” exactly; showing all {len(items)} items." if shown is items
+                              else f"Nothing matches “{search}” exactly; showing the {len(shown)} closest of {len(items)} items.")
         return out
     except service.GatewayError as e:
         return _error(e)

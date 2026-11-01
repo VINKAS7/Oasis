@@ -174,16 +174,24 @@ def parse_price(text: str) -> tuple[float | None, str]:
     m = _PRICE_RE.search(text or "")
     if not m or not (m.group(1) or m.group(3)):
         return None, ""
-    number = m.group(2).replace("'", "")
-    if re.search(r"[.,]\d{3}(?:[.,]|$)", number):  # thousands separators: 1,299.00 / 1.299,00
-        number = re.sub(r"[.,](?=\d{3}(?:[.,]|$))", "", number)
-    number = number.replace(",", ".")
-    try:
-        amount = round(float(number), 2)
-    except ValueError:
+    amount = _number(m.group(2))
+    if amount is None:
         return None, ""
     symbol = (m.group(1) or m.group(3) or "").strip()
     return amount, _CURRENCY.get(symbol.lower(), symbol.upper())
+
+
+def _number(text: Any) -> float | None:
+    """"1,299.00", "1.299,00", "1'299", "12,50", 18 -> a float; None if it isn't a number."""
+    if isinstance(text, (int, float)):
+        return round(float(text), 2)
+    number = str(text or "").strip().replace("'", "").replace(" ", "")
+    if re.search(r"[.,]\d{3}(?:[.,]|$)", number):  # thousands separators: 1,299.00 / 1.299,00
+        number = re.sub(r"[.,](?=\d{3}(?:[.,]|$))", "", number)
+    try:
+        return round(float(number.replace(",", ".")), 2)
+    except ValueError:
+        return None
 
 
 def item_id(name: str) -> str:
@@ -192,22 +200,31 @@ def item_id(name: str) -> str:
 
 
 def normalize(raw: list[dict[str, Any]], base_url: str) -> list[dict[str, Any]]:
-    """Items as the tool returns them: stable ids, parsed prices, absolute http(s) links only."""
-    out, seen = [], set()
+    """Items as the tool returns them: stable ids, parsed prices, absolute http(s) links only.
+    The same name in two sections (a Margherita under Pizza and under Kids) stays two items: the
+    first keeps the name's id, the next ones get the section in theirs."""
+    out, seen, ids = [], set(), set()
     for r in raw:
         name = (r.get("name") or "").strip()[:120]
-        if not name or name.lower() in seen:
+        section = (r.get("section") or "").strip()[:80]
+        if not name or (name.lower(), section.lower()) in seen:
             continue
-        seen.add(name.lower())
+        seen.add((name.lower(), section.lower()))
+        iid = item_id(name)
+        if iid in ids:
+            iid = item_id(f"{name} {section}".strip())
+        if iid in ids:
+            continue
+        ids.add(iid)
         price_text = (r.get("price") or "").strip()
         amount, currency = parse_price(price_text)
         if r.get("amount") is not None:
             amount, currency = r["amount"], r.get("currency") or currency
         out.append({
-            "id": item_id(name),
+            "id": iid,
             "name": name,
             "description": (r.get("description") or "").strip()[:300],
-            "section": (r.get("section") or "").strip()[:80],
+            "section": section,
             "price": price_text or (f"{currency} {amount:g}".strip() if amount is not None else ""),
             "amount": amount,
             "currency": currency,
@@ -241,10 +258,9 @@ def _offer_price(node: dict[str, Any]) -> tuple[float | None, str]:
     if isinstance(offers, list):
         offers = offers[0] if offers else {}
     price = offers.get("price", offers.get("lowPrice")) if isinstance(offers, dict) else None
-    try:
-        return (round(float(str(price).replace(",", ".")), 2) if price not in (None, "") else None), (offers.get("priceCurrency") or "").upper()
-    except ValueError:
-        return None, ""
+    currency = (offers.get("priceCurrency") or "").upper() if isinstance(offers, dict) else ""
+    amount = _number(price) if price not in (None, "") else None
+    return amount, currency if amount is not None else ""
 
 
 def jsonld_items(blocks: list[str]) -> list[dict[str, Any]]:

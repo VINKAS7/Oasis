@@ -125,20 +125,78 @@ async def _catalog(business_id: str) -> list[dict[str, Any]]:
     return items
 
 
+ITEM_SURE, ITEM_MARGIN = 0.85, 0.10  # a misspelt name ("Pizza Margarita") counts when clearly one item
+
+# Option names assistants use for the same thing ("color" for a shop's "colour").
+_AXES = [{"colour", "color", "farbe", "couleur", "colore"}, {"size", "grosse", "groesse", "taille", "taglia", "gr"}]
+
+
+def _candidate(i: dict[str, Any]) -> dict[str, Any]:
+    out = {"id": i["id"], "name": i["name"]}
+    if i.get("options"):
+        out["options"] = i["options"]
+    return out
+
+
+def find_item(key: str, catalog: list[dict[str, Any]]) -> dict[str, Any]:
+    """The catalog item an id or name means: the id, the name as typed (any case, accents or
+    not), a unique part of a name ("Diavola"), or a clear misspelling. Raises bad_input with the
+    closest items otherwise, so the assistant can ask or pick the right id."""
+    from . import matching
+
+    key = (key or "").strip()
+    for i in catalog:
+        if i.get("id") == key:
+            return i
+    folded = " ".join(matching.fold(key).split())
+    same = [i for i in catalog if " ".join(matching.fold(i["name"]).split()) == folded]
+    if len(same) == 1:
+        return same[0]
+    words = set(matching.tokens(key))
+    part = [i for i in catalog if words and words <= set(matching.tokens(i["name"]))]
+    if len(part) == 1:
+        return part[0]
+    scored = sorted(((matching.name_similarity(key, i["name"]), i) for i in catalog), key=lambda x: -x[0])
+    if (not part and len(same) < 2 and scored and scored[0][0] >= ITEM_SURE
+            and (len(scored) == 1 or scored[0][0] - scored[1][0] >= ITEM_MARGIN)):
+        return scored[0][1]
+    if same or part:
+        options = same or part
+        raise OrderError("bad_input", f"“{key}” could be several items: {', '.join(i['name'] for i in options[:6])}. Use one item's id.",
+                         candidates=[_candidate(i) for i in options[:6]])
+    near = [i for s, i in scored[:5] if s >= 0.3] or [i for _, i in scored[:5]]
+    raise OrderError("bad_input", f"“{key}” is not in the catalog. Closest: {', '.join(i['name'] for i in near)}. Use the item ids from the catalog.",
+                     candidates=[_candidate(i) for i in near])
+
+
+def _chosen_options(options: dict[str, list[str]], chosen: dict[str, Any]) -> dict[str, str]:
+    """The customer's choices keyed by the shop's own option names and values: {"Color": "black"}
+    for a shop with colour: [Black, White] is {"colour": "Black"}. Unknown values stay as given."""
+    from . import matching
+
+    given = {matching.fold(str(k)).strip(): str(v) for k, v in (chosen or {}).items()}
+    out: dict[str, str] = {}
+    for axis, values in options.items():
+        a = matching.fold(axis).strip()
+        names = next((g for g in _AXES if a in g), {a})
+        raw = next((given[k] for k in given if k == a or k in names), None)
+        if raw is None:
+            continue
+        want, want_tokens = matching.fold(raw).strip(), matching.tokens(raw)
+        out[axis] = next((v for v in values if matching.fold(v).strip() == want), None) \
+            or next((v for v in values if want_tokens and matching.tokens(v) == want_tokens), raw)
+    return out
+
+
 def _lines(requested: Any, catalog: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not isinstance(requested, list) or not requested:
         raise OrderError("bad_input", "Add at least one item: [{\"id\": ..., \"quantity\": 1}].")
     if len(requested) > MAX_LINES:
         raise OrderError("bad_input", f"At most {MAX_LINES} different items per order.")
-    by_id = {i["id"]: i for i in catalog}
-    by_name = {i["name"].strip().lower(): i for i in catalog}
     lines: dict[str, dict[str, Any]] = {}
     for r in requested:
         r = r if isinstance(r, dict) else {}
-        key = str(r.get("id") or r.get("name") or "").strip()
-        item = by_id.get(key) or by_name.get(key.lower())
-        if item is None:
-            raise OrderError("bad_input", f"“{key}” is not in the catalog. Use the item ids from the catalog tool.")
+        item = find_item(str(r.get("id") or r.get("name") or ""), catalog)
         try:
             qty = int(r.get("quantity", 1))
         except (TypeError, ValueError):
@@ -150,11 +208,13 @@ def _lines(requested: Any, catalog: list[dict[str, Any]]) -> list[dict[str, Any]
         if options:  # sizes, colours...: the customer must choose, and the choice must exist
             from ..shop.templates import variant_key
 
-            chosen = r.get("options") if isinstance(r.get("options"), dict) else {}
+            chosen = _chosen_options(options, r.get("options") if isinstance(r.get("options"), dict) else {})
             variant = variant_key(options, chosen) or ""
             if not variant:
-                choices = "; ".join(f"{axis}: {', '.join(values)}" for axis, values in options.items())
-                raise OrderError("bad_input", f"Choose the options for {item['name']} ({choices}).")
+                missing = [a for a in options if a not in chosen or chosen[a] not in options[a]]
+                choices = "; ".join(f"{axis}: {', '.join(values)}" for axis, values in options.items() if axis in missing)
+                raise OrderError("bad_input", f"Choose the {' and '.join(missing)} for {item['name']} ({choices}).",
+                                 candidates=[_candidate(item)])
         line = lines.setdefault(f"{item['id']}|{variant}", {"id": item["id"], "name": item["name"] + (f" ({variant.replace('/', ', ')})" if variant else ""),
                                                             "quantity": 0, "amount": item.get("amount"), "currency": item.get("currency", ""),
                                                             **({"variant": variant, "options": dict(zip(options, variant.split("/")))} if variant else {})})
