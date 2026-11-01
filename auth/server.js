@@ -54,7 +54,10 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     autoSignIn: true,
   },
-  rateLimit: { enabled: true, window: 60, max: 100 },
+  // Sign-in, sign-up and the rest stay limited (100 a minute per IP). get-session is not: the API
+  // checks the session on every request, always from 127.0.0.1, so a busy page or a few open tabs
+  // used up that one bucket and every user got "Sign in first". It only reads a session.
+  rateLimit: { enabled: true, window: 60, max: 100, customRules: { "/get-session": false } },
   advanced: {
     database: {
       generateId: ({ model }) => (model === "user" ? `usr_${randomId()}` : randomId(32)),

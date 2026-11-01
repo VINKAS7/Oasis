@@ -2,6 +2,7 @@
 browser's cookie to /api/auth/get-session and trust its answer, cached for a few seconds
 because the UI polls crawl progress."""
 
+import asyncio
 import time
 from dataclasses import dataclass
 
@@ -35,11 +36,22 @@ async def _lookup(cookie: str, authorization: str = "") -> "User | None":
     headers = {"cookie": cookie}
     if authorization:
         headers["authorization"] = authorization
+    for attempt in range(3):
+        try:
+            resp = await _client.get("/api/auth/get-session", headers=headers)
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, "The auth service is not reachable") from exc
+        # Only a real answer (200: a session or none; 401) says who this is. A busy or failing auth
+        # service (429, 5xx) is asked again, then reported as such: never "not signed in", never cached.
+        if resp.status_code in (200, 401):
+            break
+        await asyncio.sleep(0.3 * (attempt + 1))
+    else:
+        raise HTTPException(503, "The sign-in service is busy. Try again in a moment.")
     try:
-        resp = await _client.get("/api/auth/get-session", headers=headers)
-    except httpx.HTTPError as exc:
-        raise HTTPException(503, "The auth service is not reachable") from exc
-    data = resp.json() if resp.status_code == 200 else None
+        data = resp.json() if resp.status_code == 200 else None
+    except ValueError:  # an empty body: no session
+        data = None
     user = None
     if data and data.get("user") and not data["user"].get("banned"):
         u = data["user"]
